@@ -128,7 +128,13 @@ def plotGraph(G, points):
     plt.show()
 
 def getF(G, f):
-
+    """
+        getF(G: Graph, f: number) -> list
+        
+        Given a graph and the number of initially burning nodes, compute the average degree of the nodes
+        and create an ordered list depending on the distance of the degree with respect to the average.
+        Then, the first f nodes are picked and returned
+    """
     degrees = dict(G.degree())
     avg_degree = sum(degrees.values())/len(degrees)
 
