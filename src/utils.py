@@ -4,6 +4,8 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from src.graph_generation import getPoints, DelaunayGraph, GabrielGraph
 from src.graph_status import Status
+import gurobipy as gp
+from gurobipy import GRB	
 
 MAX_COORD = 10
 MIN_COORD = 0
@@ -51,7 +53,7 @@ def get_T_opt(b, V, T):
             return t
     return T
 
-def graph_animation(path, points, G, V, F, T, b, d):
+def graph_animation(file_name, points, G, V, F, T, b, d):
 
     fig, ax = plt.subplots(figsize=(8,8))
 
@@ -60,7 +62,7 @@ def graph_animation(path, points, G, V, F, T, b, d):
         update_graph_frame, 
         fargs=(ax, points, G, V, F, b, d),
         frames = 2*(T+1), interval = 1000) 
-    anim.save(f"{path}/graph.gif", writer="pillow", fps=1) 
+    anim.save(file_name, writer="pillow", fps=1) 
 
     plt.close(fig)
 
@@ -145,6 +147,43 @@ def update_graph_frame(frame, ax, points, G, V, F, b, d):
                 F_prime.append(i)
         burnNodes(G, F_prime)
         plot_graph(ax, G, points, f"t={t}: burning nodes")
+
+def calculate_burned_nodes(b, V, T):
+    sum = 0
+    for i in V:
+        if round(b[i, T].X)==1:
+            sum += 1
     
-def provide_results(burned_nodes, T_opt):
-    return 
+    return sum
+
+def results_single_graph_vocabulary(G, V, T, m, b, d, type_graph): # type_graph: Gabriel or Delaunay
+    T_opt=get_T_opt(b, V, T)
+    return {
+        f"{type_graph}_Time": m.Runtime,
+        f"{type_graph}_Gap": 100*m.MIPGAP,
+        f"{type_graph}_Opt": int(m.Status==GRB.OPTIMAL),
+        f"{type_graph}_T_opt": T_opt,
+        f"{type_graph}_#Burned": calculate_burned_nodes(b, V, T_opt)
+    }
+
+def compute_mean_graph_vocabulary(info, N_test, type_graph):
+    sums = {key:0.0 for key in info[0]}
+
+    for i in range(N_test):
+        for key in info[0]:
+            sums[key] += info[i][key]
+
+    for key in sums:
+        if key != f"{type_graph}_Opt":
+            sums[key] = sums[key]/N_test
+
+    return sums
+
+def test_information_vocabulary(nodes, n_fires, n_firefighters, info_G, info_D):
+    general_info = {
+        "Nodes": nodes,
+        "Fires": n_fires,
+        "Firefighters": n_firefighters
+    }
+
+    return general_info | info_G | info_D
