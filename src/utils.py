@@ -203,3 +203,15 @@ def append_to_csv(info, path):
 
 def from_csv_to_pdf(path_src, path_dst):
     convert(path_src, path_dst)
+
+def preprocessing_b(G, V, F, T, b):
+    """
+        Take the dict of distances between all the nodes in G and the ones in the set F
+        For each node assign b[i, t].ub=0 for t<min_{j in F}(dist(i,j), T+1)
+        T+1 because time goes from 0 to T
+    """
+    distances = dict(nx.multi_source_dijkstra_path_length(G, F))
+    for i in V:
+        for t in range(min(distances[i], T + 1)):
+            b[i, t].ub = 0
+    return b

@@ -33,10 +33,11 @@ SEED = 57
 N_SIM = 5
 
 PLOT_PATH = "figures"
+RESULTS_PATH = "results"
 
 """ Classical Firefighter formulation """
 
-
+test_name= "test_CFG"
 for idx, config in enumerate(CONFIGURATIONS):
     
     # Number of generated points on the graph
@@ -98,6 +99,6 @@ for idx, config in enumerate(CONFIGURATIONS):
 
     info = utils.test_information_vocabulary(n_points, n_fires, n_firefighters, total_info_G, total_info_D)
 
-    utils.append_to_csv(info, "results/test.csv")
+    utils.append_to_csv(info, f"{RESULTS_PATH}/{test_name}.csv")
 
-utils.from_csv_to_pdf("results/test.csv", "results/test.pdf")
+utils.from_csv_to_pdf(f"{RESULTS_PATH}/{test_name}.csv", f"{RESULTS_PATH}/{test_name}.pdf")
