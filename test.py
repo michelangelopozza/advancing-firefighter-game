@@ -8,6 +8,8 @@ from src.graph_generation import getPoints, DelaunayGraph, GabrielGraph
 import src.utils as utils
 from src.models import IP1
 
+from src.configurations import CONFIGURATIONS
+
 """
     Implementation of the paper   
     "Advancing firefighter games: novel integer programming formulations and the cost-value model"
@@ -27,69 +29,75 @@ from src.models import IP1
 
 PLOTS = False
 SEED = 57
+# Number of simulation per configuration
+N_SIM = 5
 
 PLOT_PATH = "figures"
 
 """ Classical Firefighter formulation """
 
-# Number of generated points on the graph
-n_points = 10
-# Max T in the classical formulation corresponds to the number of points
-T_max = n_points
-# Number of simulation per configuration
-N_SIM = 5
+
+for idx, config in enumerate(CONFIGURATIONS):
+    
+    # Number of generated points on the graph
+    n_points = config["n_points"]
+    # Max T in the classical formulation corresponds to the number of points
+    T_max = n_points
 
 
-n_firefighters = 1
-n_fire = 1
 
-info_G = []
-info_D = []
+    n_firefighters = config["n_firefighters"]
+    n_fires = config["n_fires"]
 
-for i in range(N_SIM):
-    # generate n_points random points in the plane [0,10]^2 as described in the data generation part
-    points = utils.getPoints(n_points)
+    info_G = []
+    info_D = []
 
-    T = T_max 
+    for i in range(N_SIM):
+        # generate n_points random points in the plane [0,10]^2 as described in the data generation part
+        points = utils.getPoints(n_points)
 
-    # given the points generate its Gabriel and Delaunay Graph
-    G = GabrielGraph(points)
-    D = DelaunayGraph(points)
+        T = T_max 
 
-    # get the F set
-    F_G = utils.getF(G, n_fire)
-    F_D = utils.getF(D, n_fire)
+        # given the points generate its Gabriel and Delaunay Graph
+        G = GabrielGraph(points)
+        D = DelaunayGraph(points)
 
-    if PLOTS:
-        fig, ax = plt.subplots(figsize=(8,8))
-        plot_graph(ax, G, points, "Gabriel Graph")
-        plt.show()
+        # get the F set
+        F_G = utils.getF(G, n_fires)
+        F_D = utils.getF(D, n_fires)
 
-        fig, ax = plt.subplots(figsize=(8,8))
-        plot_graph(ax, D, points, "Delaunay Graph")
-        plt.show()
+        if PLOTS:
+            fig, ax = plt.subplots(figsize=(8,8))
+            plot_graph(ax, G, points, "Gabriel Graph")
+            plt.show()
 
-    V_G = list(G.nodes())
-    V_D = list(D.nodes())
+            fig, ax = plt.subplots(figsize=(8,8))
+            plot_graph(ax, D, points, "Delaunay Graph")
+            plt.show()
+
+        V_G = list(G.nodes())
+        V_D = list(D.nodes())
 
 
-    m_G, b_G, d_G = IP1(G, T, n_firefighters, F_G)
-    m_D, b_D, d_D = IP1(D, T, n_firefighters, F_D)
+        m_G, b_G, d_G = IP1(G, T, n_firefighters, F_G)
+        m_D, b_D, d_D = IP1(D, T, n_firefighters, F_D)
 
-    T_opt_G = utils.get_T_opt(b_G, V_G, T)
+        T_opt_G = utils.get_T_opt(b_G, V_G, T)
 
-    #graph_animation(f"{PLOT_PATH}/Gabriel_IP1.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G)
+        #graph_animation(f"{PLOT_PATH}/Gabriel_IP1.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G)
 
-    T_opt_D = utils.get_T_opt(b_D, V_D, T)
+        T_opt_D = utils.get_T_opt(b_D, V_D, T)
 
-    #graph_animation(f"{PLOT_PATH}/Delaunay_IP1.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)
+        #graph_animation(f"{PLOT_PATH}/Delaunay_IP1.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)
 
-    info_G.append(utils.results_single_graph_vocabulary(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
-    info_D.append(utils.results_single_graph_vocabulary(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
+        info_G.append(utils.results_single_graph_vocabulary(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
+        info_D.append(utils.results_single_graph_vocabulary(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
 
-total_info_G = utils.compute_mean_graph_vocabulary(info_G, N_SIM, "Gabriel")
-total_info_D = utils.compute_mean_graph_vocabulary(info_D, N_SIM, "Delaunay")
+    total_info_G = utils.compute_mean_graph_vocabulary(info_G, N_SIM, "Gabriel")
+    total_info_D = utils.compute_mean_graph_vocabulary(info_D, N_SIM, "Delaunay")
 
-info = utils.test_information_vocabulary(n_points, n_fire, n_firefighters, total_info_G, total_info_D)
+    info = utils.test_information_vocabulary(n_points, n_fires, n_firefighters, total_info_G, total_info_D)
 
-print(info)
+    utils.append_to_csv(info, "results/test.csv")
+
+utils.from_csv_to_pdf("results/test.csv", "results/test.pdf")

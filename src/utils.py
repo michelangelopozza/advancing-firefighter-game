@@ -6,6 +6,8 @@ from src.graph_generation import getPoints, DelaunayGraph, GabrielGraph
 from src.graph_status import Status
 import gurobipy as gp
 from gurobipy import GRB	
+import csv, os
+from csv2pdf import convert
 
 MAX_COORD = 10
 MIN_COORD = 0
@@ -163,7 +165,7 @@ def results_single_graph_vocabulary(G, V, T, m, b, d, type_graph): # type_graph:
         f"{type_graph}_Gap": 100*m.MIPGAP,
         f"{type_graph}_Opt": int(m.Status==GRB.OPTIMAL),
         f"{type_graph}_T_opt": T_opt,
-        f"{type_graph}_#Burned": calculate_burned_nodes(b, V, T_opt)
+        f"{type_graph}_Burn": calculate_burned_nodes(b, V, T_opt)
     }
 
 def compute_mean_graph_vocabulary(info, N_test, type_graph):
@@ -187,3 +189,17 @@ def test_information_vocabulary(nodes, n_fires, n_firefighters, info_G, info_D):
     }
 
     return general_info | info_G | info_D
+
+def append_to_csv(info, path):
+    info["Gabriel_Time"] = format(info["Gabriel_Time"], ".4f")
+    info["Delaunay_Time"] = format(info["Delaunay_Time"], ".4f")
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    write_header = not os.path.exists(path) or os.path.getsize(path) == 0
+    with open(path, "a", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(info.keys()))
+        if write_header:
+            w.writeheader()
+        w.writerow(info)
+
+def from_csv_to_pdf(path_src, path_dst):
+    convert(path_src, path_dst)
