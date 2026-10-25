@@ -2,11 +2,44 @@ import numpy as np
 import networkx as nx
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from src.graphGeneration import getPoints, DelaunayGraph, GabrielGraph, getF, plotGraph, setDefenders, burnNodes
+from src.graph_generation import getPoints, DelaunayGraph, GabrielGraph
+from src.graph_status import Status
 
 MAX_COORD = 10
 MIN_COORD = 0
 
+
+def getF(G, f):
+    """
+        getF(G: Graph, f: number) -> list
+        
+        Given a graph and the number of initially burning nodes, compute the average degree of the nodes
+        and create an ordered list depending on the distance of the degree with respect to the average.
+        Then, the first f nodes are picked and returned
+    """
+    degrees = dict(G.degree())
+    avg_degree = sum(degrees.values())/len(degrees)
+
+    sorted_nodes = sorted(
+        G.nodes(),
+        key=lambda v: (abs(degrees[v]-avg_degree), v)
+    )
+    
+    return sorted_nodes[:f]
+
+def burnNodes(G, F):
+    
+    for i in F:
+        G.nodes[i]["status"] = Status.BURNING
+    
+    return G
+
+def setDefenders(G, D):
+    
+    for i in D:
+        G.nodes[i]["status"] = Status.DEFENDED
+        
+    return G
 
 def get_T_opt(b, V, T):
     for t in range(T + 1):
@@ -22,14 +55,12 @@ def graph_animation(path, points, G, V, F, T, b, d):
 
     fig, ax = plt.subplots(figsize=(8,8))
 
-    
-    
     anim = animation.FuncAnimation(
         fig, 
         update_graph_frame, 
         fargs=(ax, points, G, V, F, b, d),
         frames = 2*(T+1), interval = 1000) 
-    anim.save(f"{path}/graph.gif", fps=1, writer="Pillow") 
+    anim.save(f"{path}/graph.gif", writer="pillow", fps=1) 
 
     plt.close(fig)
 
@@ -70,12 +101,12 @@ def plot_graph(ax, G, points, title):
 
     for i in range(n_points):
         
-        color = 'tab:gray'
+        color = 'black'
         
         if G.nodes[i]['status'].value == 'defended':
-            color = 'tab:blue'
+            color = 'darkblue'
         elif G.nodes[i]['status'].value == 'burning':
-            color = 'tab:red'  
+            color = 'red'  
         
         ax.scatter(
             points[i, 0],
@@ -86,10 +117,10 @@ def plot_graph(ax, G, points, title):
 
     for i, (x, y) in enumerate(points):
         ax.text(
-            x,
-            y+0.2,
+            x+0.1,
+            y-0.2,
             str(i),
-            fontsize=15,
+            fontsize=10,
             color='black'
         )
 
@@ -115,10 +146,5 @@ def update_graph_frame(frame, ax, points, G, V, F, b, d):
         burnNodes(G, F_prime)
         plot_graph(ax, G, points, f"t={t}: burning nodes")
     
-    
-
-    
-
-
 def provide_results(burned_nodes, T_opt):
     return 
