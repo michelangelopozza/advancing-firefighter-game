@@ -8,9 +8,9 @@ from src.graph_status import Status
 MAX_COORD = 10
 MIN_COORD = 0
 
-def getPoints(n_points, seed):
-
-    np.random.seed(seed)
+def getPoints(n_points, seed=None):
+    if seed != None:
+        np.random.seed(seed)
     
     return np.column_stack((
         np.random.uniform(MIN_COORD, MAX_COORD, n_points),
