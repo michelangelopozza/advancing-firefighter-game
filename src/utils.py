@@ -8,6 +8,7 @@ import gurobipy as gp
 from gurobipy import GRB	
 import csv, os
 from csv2pdf import convert
+import math
 
 MAX_COORD = 10
 MIN_COORD = 0
@@ -30,6 +31,9 @@ def getF(G, f):
     )
     
     return sorted_nodes[:f]
+
+def get_N(i, G):
+    return [j for j in G.neighbors(i)]
 
 def burnNodes(G, F):
     
@@ -54,6 +58,19 @@ def get_T_opt(b, V, T):
         if finished:
             return t
     return T
+
+def get_T_max(n, f, d):
+    """
+        Function to extract the five optimal Tmax to use in the optimization problems
+        Reference 3.3
+    """
+    Tmax_0 = n
+    Tmax_1 = n - f
+    Tmax_2 = math.ceil(n/d)
+    Tmax_3 = math.ceil((n-f)/d)
+    Tmax_4 = math.ceil((n-f)/(d+1))
+
+    return [Tmax_0, Tmax_1, Tmax_2, Tmax_3, Tmax_4]
 
 def graph_animation(file_name, points, G, V, F, T, b, d):
 
