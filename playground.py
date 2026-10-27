@@ -1,6 +1,8 @@
 import numpy as np
 import networkx as nx
 import src.utils as utils
+import matplotlib.pyplot as plt
+import src.models as models
 from src.graph_generation import getPoints, DelaunayGraph, GabrielGraph
 
 vals = np.column_stack((
@@ -23,14 +25,8 @@ distances = dict(nx.all_pairs_shortest_path_length(G))
 F = utils.getF(G, 1)
 T = 10
 
-t_min = np.ones(len(V))*len(V)
-for i in V:
-    for j in F:
-        t_min[i] = min(distances[i][j], t_min[i])
+# fig, ax = plt.subplots(figsize=(8,8))
+# utils.plot_graph(ax, G, points, "Gabriel Graph")
+# plt.show()
 
-for i in V:
-    for t in range(round(t_min[i])):
-        b[i, t].ub = 0
-        
-
-print(distances)
+m, b, d = models.IP1_bis(G, T, 1, F, 0.4, "defense")
