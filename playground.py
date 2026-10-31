@@ -29,4 +29,9 @@ T = 10
 # utils.plot_graph(ax, G, points, "Gabriel Graph")
 # plt.show()
 
-m, b, d = models.IP1_bis(G, T, 1, F, 0.4, "defense")
+m, b, d = models.CFG(G, T, 1, F)
+
+import gurobipy as gp
+print(gp.gurobi.version())
+m = gp.Model()
+m.params.OutputFlag = 1
