@@ -35,6 +35,9 @@ def getF(G, f):
 def get_N(i, G):
     return [j for j in G.neighbors(i)]
 
+def get_V(G):
+    return list(G.nodes())
+
 def burnNodes(G, F):
     
     for i in F:
