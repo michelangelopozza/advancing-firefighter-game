@@ -124,9 +124,10 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     F_G = utils.getF(G, n_fires)
     F_D = utils.getF(D, n_fires)
 
-    V_G = list(G.nodes())
-    V_D = list(D.nodes())
+    V_G = utils.get_V(G)
+    V_D = utils.get_V(D)
 
+    
     if type_opt == "CFG_improved":
         m_G, b_G, d_G = opt(G, T, n_firefighters, F_G, alpha, relax)
         m_D, b_D, d_D = opt(D, T, n_firefighters, F_D, alpha, relax)
@@ -134,8 +135,12 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
         m_G, b_G, d_G = opt(G, T, n_firefighters, F_G)
         m_D, b_D, d_D = opt(D, T, n_firefighters, F_D) 
 
-    T_opt_G = utils.get_T_opt(b_G, V_G, T)
-    T_opt_D = utils.get_T_opt(b_D, V_D, T)
+    if type_opt == "CFG" or type_opt == "CFG_improved":
+        T_opt_G = utils.get_T_opt(b_G, V_G, T)
+        T_opt_D = utils.get_T_opt(b_D, V_D, T)
+    else:
+        T_opt_G = utils.get_T_opt_CF1(b_G, V_G, T)
+        T_opt_D = utils.get_T_opt_CF1(b_D, V_D, T)
 
     utils.graph_animation(f"{save_path}/Gabriel_animation.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G)
     utils.graph_animation(f"{save_path}/Delaunay_animation.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)

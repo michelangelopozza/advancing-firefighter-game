@@ -121,19 +121,20 @@ def CFG_improved(G, T, n_firefighters, F, alpha, relax="defense"):
 
 def CF1(G, T, n_firefighters, F):
 
-    V = list(G.nodes())
+    V = utils.get_V(G)
 
     m = gp.Model("CF1")
 
     b_hat = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="b_hat")
     d_hat = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="d_hat")
 
-
+    # max n_firefighters set each time step
     m.addConstrs(
         (gp.quicksum(d_hat[i, t] for i in V) <= n_firefighters for t in range(1, T+1)),
         name="3.5b"
     )
 
+    # vertex j adjacent to i burning at t-1 must be defended or burn at time t
     m.addConstrs(
         (gp.quicksum(b_hat[i, r] for r in range(0, t)) <= gp.quicksum(b_hat[j, r] 
         for r in range(0, t+1)) + gp.quicksum(d_hat[j, r] for r in range(1, t+1)) 
@@ -141,16 +142,12 @@ def CF1(G, T, n_firefighters, F):
         name="3.5c"
     )
 
-    for i in V:
-        if i in F:
-            b_hat[i, 0].lb = 1
-            b_hat[i, 0].ub = 1
-        else:
-            b_hat[i, 0].lb = 0
-            b_hat[i, 0].ub = 0
-        d_hat[i, 0].lb = 0
-        d_hat[i, 0].ub = 0
+    # 3.5d -> set vertices in F to burn at t=0
+    for i in F:
+        b_hat[i, 0].lb = 1
+        b_hat[i, 0].ub = 1
 
+    # 3.5a -> minimize the sum of vertices that starts burning at t for all t and for all i in V
     m.setObjective(gp.quicksum(gp.quicksum(b_hat[i, t] for t in range(0, T+1)) for i in V), GRB.MINIMIZE)
 
     m.optimize()
@@ -224,7 +221,8 @@ def CF1_improved(G, T, n_firefighters, F, alpha=0.3, relax="none"):
 
 optimization_problems = {
     "CFG": CFG,
-    "CFG_improved": CFG_improved
+    "CFG_improved": CFG_improved,
+    "CF1": CF1
 }
 
 relax_availables = ["defense", "fires", "none"]

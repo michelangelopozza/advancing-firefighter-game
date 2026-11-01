@@ -62,6 +62,17 @@ def get_T_opt(b, V, T):
             return t
     return T
 
+def get_T_opt_CF1(b_hat, V, T):
+    for t in range(T + 1):
+        finished = True
+        for i in V:
+            # if you find a time instant t where a vertex is starting burning -> NOT FINISHED
+            if round(b_hat[i, t].X) == 1:
+                finished = False   
+        if finished:
+            return t-1
+    return T
+
 def get_T_max(n, f, d):
     """
         Function to extract the five optimal Tmax to use in the optimization problems
