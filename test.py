@@ -128,7 +128,7 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     V_D = utils.get_V(D)
 
     
-    if type_opt == "CFG_improved":
+    if type_opt == "CFG_improved" or type_opt == "CF1_improved":
         m_G, b_G, d_G = opt(G, T, n_firefighters, F_G, alpha, relax)
         m_D, b_D, d_D = opt(D, T, n_firefighters, F_D, alpha, relax)
     else:

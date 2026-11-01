@@ -56,11 +56,10 @@ def CFG(G, T, n_firefighters, F):
     return m, b, d
 
 
-def CFG_improved(G, T, n_firefighters, F, alpha, relax="defense"):
+def CFG_improved(G, T, n_firefighters, F, alpha, relax="none"):
 
     assert 0 <= alpha <= 1, "alpha must be in [0,1]"
-    # add none to not relax both
-    assert relax == "defense" or relax == "fires", "relax must be equal to defense or fires"
+    assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
 
     V = utils.get_V(G)
 
@@ -159,21 +158,23 @@ def CF1_improved(G, T, n_firefighters, F, alpha=0.3, relax="none"):
     assert 0 <= alpha <= 1, "alpha must be in [0,1]"
     assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
 
-    V = list(G.nodes())
+    V = utils.get_V(G)
 
     m = gp.Model("CF1_improved")
 
     vtype_b_hat = GRB.BINARY
     vtype_d_hat = GRB.BINARY
 
+    # relax none or one of the variables
     if relax == "defense":
         vtype_d_hat = GRB.CONTINUOUS
     elif relax == "fires":
         vtype_b_hat = GRB.CONTINUOUS
 
-    b_hat = m.addVars(V, range(T+1), vtype=vtype_b_hat, name="b_hat")
-    d_hat = m.addVars(V, range(T+1), vtype=vtype_d_hat, name="d_hat")
+    b_hat = m.addVars(V, range(T+1), vtype=vtype_b_hat, lb=0, ub=1, name="b_hat")
+    d_hat = m.addVars(V, range(T+1), vtype=vtype_d_hat, lb=0, ub=1, name="d_hat")
 
+    # vertex j adjacent to i burning at t-1 must be defended or burn at time t
     m.addConstrs(
         (gp.quicksum(b_hat[i, r] for r in range(0, t)) <= gp.quicksum(b_hat[j, r] 
         for r in range(0, t+1)) + gp.quicksum(d_hat[j, r] for r in range(1, t+1)) 
@@ -181,38 +182,39 @@ def CF1_improved(G, T, n_firefighters, F, alpha=0.3, relax="none"):
         name="3.5c"
     )
 
+    # aggregate constraint for the maximum number of defenders per time step
     m.addConstrs(
         (gp.quicksum(gp.quicksum(d_hat[i, r] for r in range(1, t+1)) for i in V) <= t*n_firefighters for t in range(1, T+1)),
         name="3.6"
     )
 
-    m.addConstrs(
-        (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) <= 1 for i in V for t in range(0, math.ceil(alpha*(T+1)))),
-        name="alpha3.7_1"
-    )
+    # # a vertex can burn for the first time only at one t (alpha formulation to reduce the total number of inequalities)
+    # m.addConstrs(
+    #     (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) <= 1 for i in V for t in range(0, math.ceil(alpha*(T))+1)),
+    #     name="alpha3.7_1"
+    # )
+    
+    # # a vertex can be defended for the first time only at one t (alpha formulation to reduce the total number of inequalities)
+    # m.addConstrs(
+    #     (gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(1, math.ceil(alpha*(T))+1)),
+    #     name="alpha3.7_2"
+    # )
 
+    # a vertex can be defended or burn, not both for each time t (alpha formulation to reduce the total number of inequalities)
     m.addConstrs(
-        (gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(1, math.ceil(alpha*(T+1)))),
-        name="alpha3.7_2"
-    )
-
-    m.addConstrs(
-        (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) + gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(0, math.ceil(alpha*(T+1)))),
+        (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) + gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(0, math.ceil(alpha*(T))+1)),
         name="alpha3.8"
     )
 
-    for i in V:
-        if i in F:
-            b_hat[i, 0].lb = 1
-            b_hat[i, 0].ub = 1
-        else:
-            b_hat[i, 0].lb = 0
-            b_hat[i, 0].ub = 0
-        d_hat[i, 0].lb = 0
-        d_hat[i, 0].ub = 0
-
+    # 3.5d -> set vertices in F to burn at t=0
+    for i in F:
+        b_hat[i, 0].lb = 1
+        b_hat[i, 0].ub = 1
+    
+    # preprocessing -> set b[i, t]=0 for t<dist(i,j) where j in F
     b_hat = utils.preprocessing_b(G, V, F, T, b_hat)
 
+    # 3.5a -> minimize the sum of vertices that starts burning at t for all t and for all i in V
     m.setObjective(gp.quicksum(gp.quicksum(b_hat[i, t] for t in range(0, T+1)) for i in V), GRB.MINIMIZE)
 
     m.optimize()
@@ -222,7 +224,8 @@ def CF1_improved(G, T, n_firefighters, F, alpha=0.3, relax="none"):
 optimization_problems = {
     "CFG": CFG,
     "CFG_improved": CFG_improved,
-    "CF1": CF1
+    "CF1": CF1,
+    "CF1_improved": CF1_improved
 }
 
 relax_availables = ["defense", "fires", "none"]
