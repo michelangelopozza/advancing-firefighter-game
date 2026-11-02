@@ -105,7 +105,7 @@ def perform_full_test():
 
     utils.from_csv_to_pdf(f"{RESULTS_PATH}/{test_name}.csv", f"{RESULTS_PATH}/{test_name}.pdf")
 
-def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighters, alpha, relax):
+def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighters, alpha, relax, beta):
     save_path = f"{PLOT_PATH}/simple_test_{type_opt}"
     os.makedirs(save_path, exist_ok=True)
 
@@ -134,9 +134,12 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     elif type_opt == "CFG" or type_opt == "CF1":
         m_G, b_G, d_G = opt(G, T, n_firefighters, F_G)
         m_D, b_D, d_D = opt(D, T, n_firefighters, F_D) 
-    else:
+    elif type_opt == "CF2":
         m_G, x_G, d_G = opt(G, T, n_firefighters, F_G)
         m_D, x_D, d_D = opt(D, T, n_firefighters, F_D) 
+    elif type_opt == "CF2_improved":
+        m_G, x_G, d_G = opt(G, T, n_firefighters, F_G, alpha, beta)
+        m_D, x_D, d_D = opt(D, T, n_firefighters, F_D, alpha, beta) 
 
     if type_opt == "CFG" or type_opt == "CFG_improved":
         T_opt_G = utils.get_T_opt(b_G, V_G, T)
@@ -144,13 +147,14 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     elif type_opt == "CF1" or type_opt == "CF1_improved":
         T_opt_G = utils.get_T_opt_CF1(b_G, V_G, T)
         T_opt_D = utils.get_T_opt_CF1(b_D, V_D, T)
-    else:
+    elif type_opt == "CF2" or type_opt == "CF2_improved":
         T_opt_G = utils.get_T_opt_CF2(x_G)
         T_opt_D = utils.get_T_opt_CF2(x_D)
 
     if type_opt == "CF2" or type_opt == "CF2_improved":
         b_G = utils.extract_b_from_x_CF2(x_G, V_G, T, F_G)
         b_D = utils.extract_b_from_x_CF2(x_D, V_D, T, F_D)
+    
     utils.graph_animation(f"{save_path}/Gabriel_animation.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G)
     utils.graph_animation(f"{save_path}/Delaunay_animation.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)
     
@@ -172,7 +176,8 @@ if __name__ == "__main__":
     parser.add_argument("-n", type=int, default=10)
     parser.add_argument("-f", type=int, default=1)
     parser.add_argument("-d", type=int, default=1)
-    parser.add_argument("-alpha", type=float, default=0.3)
+    parser.add_argument("-alpha", type=float, default=0.7)
+    parser.add_argument("-beta", type=float, default=0.5)
     parser.add_argument("-relax", type=str, default="none")
 
     args = parser.parse_args()
@@ -183,6 +188,7 @@ if __name__ == "__main__":
     n_fires = args.f
     n_firefighters = args.d
     alpha = args.alpha
+    beta = args.beta
     relax = args.relax
 
     if type_opt not in optimization_problems:
@@ -192,9 +198,12 @@ if __name__ == "__main__":
     if alpha < 0.0 or alpha > 1.0:
         parser.error(f"Alpha '{alpha}' is out of bounds. Use alpha in [0.0, 1.0]")
 
+    if beta < 0.0 or beta > 1.0:
+        parser.error(f"Beta '{beta}' is out of bounds. Use alpha in [0.0, 1.0]")
+
     if relax not in relax_availables:
         parser.error(f"Relax '{relax}' is not defined. Use one of the following relaxations: {relax_availables}")
 
     if test == "simple":
-        perform_simple_graphic_test(n_points, SEED, type_opt, n_fires, n_firefighters, alpha, relax)
+        perform_simple_graphic_test(n_points, SEED, type_opt, n_fires, n_firefighters, alpha, relax, beta)
                 
