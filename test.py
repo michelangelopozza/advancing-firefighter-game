@@ -131,17 +131,26 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     if type_opt == "CFG_improved" or type_opt == "CF1_improved":
         m_G, b_G, d_G = opt(G, T, n_firefighters, F_G, alpha, relax)
         m_D, b_D, d_D = opt(D, T, n_firefighters, F_D, alpha, relax)
-    else:
+    elif type_opt == "CFG" or type_opt == "CF1":
         m_G, b_G, d_G = opt(G, T, n_firefighters, F_G)
         m_D, b_D, d_D = opt(D, T, n_firefighters, F_D) 
+    else:
+        m_G, x_G, d_G = opt(G, T, n_firefighters, F_G)
+        m_D, x_D, d_D = opt(D, T, n_firefighters, F_D) 
 
     if type_opt == "CFG" or type_opt == "CFG_improved":
         T_opt_G = utils.get_T_opt(b_G, V_G, T)
         T_opt_D = utils.get_T_opt(b_D, V_D, T)
-    else:
+    elif type_opt == "CF1" or type_opt == "CF1_improved":
         T_opt_G = utils.get_T_opt_CF1(b_G, V_G, T)
         T_opt_D = utils.get_T_opt_CF1(b_D, V_D, T)
+    else:
+        T_opt_G = utils.get_T_opt_CF2(x_G)
+        T_opt_D = utils.get_T_opt_CF2(x_D)
 
+    if type_opt == "CF2" or type_opt == "CF2_improved":
+        b_G = utils.extract_b_from_x_CF2(x_G, V_G, T, F_G)
+        b_D = utils.extract_b_from_x_CF2(x_D, V_D, T, F_D)
     utils.graph_animation(f"{save_path}/Gabriel_animation.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G)
     utils.graph_animation(f"{save_path}/Delaunay_animation.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)
     

@@ -9,6 +9,11 @@ from gurobipy import GRB
 import csv, os
 from csv2pdf import convert
 import math
+from dataclasses import dataclass
+
+@dataclass
+class Val:
+    X: float
 
 MAX_COORD = 10
 MIN_COORD = 0
@@ -34,6 +39,13 @@ def getF(G, f):
 
 def get_N(i, G):
     return [j for j in G.neighbors(i)]
+
+def get_N_set(B, G):
+    neighbors = set()
+    for i in B:
+        neighbors.update(G.neighbors(i))
+    
+    return neighbors
 
 def get_V(G):
     return list(G.nodes())
@@ -72,6 +84,24 @@ def get_T_opt_CF1(b_hat, V, T):
         if finished:
             return t-1
     return T
+
+def get_T_opt_CF2(x):
+    last_t = 0
+    for (i, j, t), var in x.items():
+        if round(var.X) == 1:
+            last_t = max(last_t, t)
+    return last_t
+
+def extract_b_from_x_CF2(x, V, T, F):
+    b = {(i, t): Val(0.0) for i in V for t in range(T + 1)}
+    for i in F:
+        for t in range(T+1):
+            b[i, t].X = 1.0   
+    for (i, j, t), var in x.items():
+        if round(var.X) == 1:
+            for r in range(t, T + 1):
+                b[j, r].X = 1.0
+    return b
 
 def get_T_max(n, f, d):
     """

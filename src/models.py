@@ -221,11 +221,80 @@ def CF1_improved(G, T, n_firefighters, F, alpha=0.3, relax="none"):
 
     return m, b_hat, d_hat
 
+def CF2(G, T, n_firefighters, F):
+
+    V = utils.get_V(G)
+
+    m = gp.Model("CF2")
+
+    # x_ij^t is 1 if the fire spreads from vertex i to j at time t
+    x = m.addVars(((i, j, t) for i in V for j in utils.get_N(i, G) for t in range(1, T+1)), 
+    vtype=GRB.BINARY, name="x")
+    d = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="d")
+
+    m.addConstrs(
+        (d[i, t-1] <= d[i, t] for i in V for t in range(1, T+1)),
+        name="3.1c"
+    )
+
+    m.addConstrs(
+        (gp.quicksum(d[i, t] - d[i, t-1] for i in V) <= n_firefighters for t in range(1, T+1)),
+        name="3.1f"
+    )
+
+    # 3.1h
+    for i in V:
+        # fix defense to 0 for t=0 (3.1h)
+        d[i, 0].lb = 0
+        d[i, 0].ub = 0
+
+    # case for t=1: vertices adjacent to F must be defended at t=1 or the fire will burn them
+    m.addConstrs(
+        (1 <= d[i, 1] + gp.quicksum(x[k, i, 1] for k in (set(utils.get_N(i, G)) & set(F))) for i in (set(utils.get_N_set(F, G))-set(F))),
+        name="3.11b"
+    )
+
+    # case for t>=2: 
+        # -take all the nodes not in F, compute their neighborhood N(i)
+        # -if the fire reaches i at time t-1
+            # -then at t the fires spread to j (neighbors of i)
+            # -or the node is already defended (d_j^t)
+            # -or it has been already burned by others nodes (neighbors of the neighbors of i)
+    m.addConstrs(
+        (gp.quicksum(x[k, i, t-1] for k in set(utils.get_N(i, G)) - {j}) <= x[i, j, t] + d[j, t] + 
+        gp.quicksum(gp.quicksum(x[k, j, r] for k in (set(utils.get_N(j, G))-set({i}))) 
+        for r in range(max(1, t-2),t+1)) for i in (set(V)-set(F)) 
+        for j in utils.get_N(i, G) for t in range(2, T+1)),
+        name="3.11c"
+    )
+
+    # 3.11d -> no spontaneous ignition constraint
+    for i in (set(V)-set(F)):
+        for j in utils.get_N(i, G):
+            x[i, j, 1].ub = 0
+            x[i, j, 1].lb = 0
+
+    # 3.11e -> no spontaneous ignition constraint
+    m.addConstrs(
+        (x[i, j, t] <= gp.quicksum(x[k, i, t-1] for k in (set(utils.get_N(i, G))-set({j}))) 
+        for i in (set(V)-set(F)) for j in utils.get_N(i, G) for t in range(2, T+1)),
+        name="3.11e"
+    )
+
+    # 3.11a -> minimize the number of vertices the fire spreads to
+    m.setObjective(gp.quicksum(gp.quicksum(gp.quicksum(x[i, j, t] for t in range(1, T+1)) for j in utils.get_N(i, G)) for i in V), GRB.MINIMIZE)
+
+    m.optimize()
+
+    return m, x, d
+
+
 optimization_problems = {
     "CFG": CFG,
     "CFG_improved": CFG_improved,
     "CF1": CF1,
-    "CF1_improved": CF1_improved
+    "CF1_improved": CF1_improved,
+    "CF2": CF2
 }
 
 relax_availables = ["defense", "fires", "none"]
