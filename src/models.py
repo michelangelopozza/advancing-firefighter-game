@@ -368,6 +368,11 @@ def CF2_improved(G, T, n_firefighters, F, alpha=0.7, beta=0.5):
         name="3.14_alpha"
     )
 
+    # preprocessing
+    x = utils.preprocessing_x(G, V, F, T, x)
+
+
+
     # 3.11a -> minimize the number of vertices the fire spreads to
     m.setObjective(gp.quicksum(gp.quicksum(gp.quicksum(x[i, j, t] for t in range(1, T+1)) for j in utils.get_N(i, G)) for i in V), GRB.MINIMIZE)
 

@@ -276,3 +276,36 @@ def preprocessing_b(G, V, F, T, b):
         for t in range(min(distances[i], T + 1)):
             b[i, t].ub = 0
     return b
+
+def preprocessing_x(G, V, F, T, x):
+    for i in F:
+        for k in get_N(i, G):
+            x[k, i, 1].lb = 0
+            x[k, i, 1].ub = 0
+
+    for i in (set(V)-set(F)):
+        for j in get_N(i, G):
+            x[i, j, 1].lb = 0
+            x[i, j, 1].ub = 0
+        for k in (set(get_N(i, G))-set(F)):
+            x[k, i, 1].lb = 0
+            x[k, i, 1].ub = 0
+
+    for i in F:
+        for k in get_N(i, G):
+            for t in range(2, T+1):
+                x[k, i, t].lb = 0
+                x[k, i, t].ub = 0
+                x[i, k, t].lb = 0
+                x[i, k, t].ub = 0
+
+    distances = dict(nx.multi_source_dijkstra_path_length(G, F))
+    for i in V:
+        for j in get_N(i, G):
+            for t in range(2, min(dist[i]+1, T+1)):
+                x[i, j, t].lb = 0
+                x[i, j, t].ub = 0
+            for t in range(2, min(dist[i], T+1)):
+                x[j, i, t].lb = 0
+                x[j, i, t].ub = 0
+    return x
