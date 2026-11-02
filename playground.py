@@ -35,3 +35,5 @@ N = utils.get_N(9, G)
 print(N)
 print(F)
 print(set(N) & set(F))
+
+print(G.edges())
