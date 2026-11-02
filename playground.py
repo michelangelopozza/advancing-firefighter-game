@@ -29,9 +29,9 @@ T = 10
 # utils.plot_graph(ax, G, points, "Gabriel Graph")
 # plt.show()
 
-m, b, d = models.CFG(G, T, 1, F)
+# m, b, d = models.CFG(G, T, 1, F)
 
-import gurobipy as gp
-print(gp.gurobi.version())
-m = gp.Model()
-m.params.OutputFlag = 1
+N = utils.get_N(9, G)
+print(N)
+print(F)
+print(set(N) & set(F))
