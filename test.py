@@ -19,11 +19,13 @@ from src.configurations import CONFIGURATIONS
     In the following script are present different formulation of the same Firefighter Game 
     problem:
         - Classical Firefigher Game formulation (CFG)
-        - Classical Firefighter Game + Time bounds (CFGTB)
+        - Classical Firefighter Game + improvements (CFG_improved)
         - Variation 1 of Classical Firefighter Game (CFG1)
+        - Variation 1 of Classical Firefighter Game + improvements (CFG1_improved)
         - Variation 2 of Classical Firefighter Game (CFG2)
+        - Variation 2 of Classical Firefighter Game + improvements (CFG2_improved)
         - Cost Value Firefighter Game (CVFG)
-        - Cost Value Firefighter Game + Time bounds (CVFGTB)
+        - Cost Value Firefighter Game + improvements (CVFG_improved)
         - Variation 1 of Cost Value Firefighter Game (CVF1)
         - Variation 2 of Cost Value Firefighter Game (CVF2)
         
@@ -31,6 +33,7 @@ from src.configurations import CONFIGURATIONS
 
 PLOTS = False
 SEED = 57
+SEEDS = [57, 982, 4, 322, 81]
 # Number of simulation per configuration
 N_SIM = 5
 
@@ -46,8 +49,6 @@ def perform_full_test():
         n_points = config["n_points"]
         # Max T in the classical formulation corresponds to the number of points
         T_max = n_points
-
-
 
         n_firefighters = config["n_firefighters"]
         n_fires = config["n_fires"]
@@ -127,7 +128,11 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     V_G = utils.get_V(G)
     V_D = utils.get_V(D)
 
-    
+    c_G, v_G = utils.get_cost_value(V_G, F_G, seed)
+    c_D, v_D = utils.get_cost_value(V_D, F_D, seed)
+
+    budget = utils.get_defense_budget(n_firefighters)
+
     if type_opt == "CFG_improved" or type_opt == "CF1_improved":
         m_G, b_G, d_G = opt(G, T, n_firefighters, F_G, alpha, relax)
         m_D, b_D, d_D = opt(D, T, n_firefighters, F_D, alpha, relax)
@@ -140,8 +145,11 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     elif type_opt == "CF2_improved":
         m_G, x_G, d_G = opt(G, T, n_firefighters, F_G, alpha, beta)
         m_D, x_D, d_D = opt(D, T, n_firefighters, F_D, alpha, beta) 
+    elif type_opt == "CVFG":
+        m_G, b_G, d_G, s_G = opt(G, T, F_G, c_G, v_G, budget)
+        m_D, b_D, d_D, s_D = opt(D, T, F_D, c_D, v_D, budget) 
 
-    if type_opt == "CFG" or type_opt == "CFG_improved":
+    if type_opt == "CFG" or type_opt == "CFG_improved" or type_opt == "CVFG":
         T_opt_G = utils.get_T_opt(b_G, V_G, T)
         T_opt_D = utils.get_T_opt(b_D, V_D, T)
     elif type_opt == "CF1" or type_opt == "CF1_improved":
@@ -155,15 +163,25 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
         b_G = utils.extract_b_from_x_CF2(x_G, V_G, T, F_G)
         b_D = utils.extract_b_from_x_CF2(x_D, V_D, T, F_D)
     
-    utils.graph_animation(f"{save_path}/Gabriel_animation.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G)
-    utils.graph_animation(f"{save_path}/Delaunay_animation.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)
+    if type_opt == "CVFG":
+        utils.graph_animation_value_function(f"{save_path}/Gabriel_animation.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G, s_G, c_G, v_G)
+        utils.graph_animation_value_function(f"{save_path}/Delaunay_animation.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D, s_D, c_D, v_D)    
+    else:
+        utils.graph_animation(f"{save_path}/Gabriel_animation.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G)
+        utils.graph_animation(f"{save_path}/Delaunay_animation.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)
     
     fig, ax = plt.subplots(figsize=(8,8))
-    utils.plot_graph(ax, G, points, "Gabriel Graph")
+    if type_opt == "CVFG":
+        utils.plot_graph_value_function(ax, G, points, c_G, v_G, {i: s_G[i, T].X for i in V_G}, "Gabriel Graph")
+    else:
+        utils.plot_graph(ax, G, points, "Gabriel Graph")
     plt.savefig(f"{save_path}/Gabriel.png")
 
     fig, ax = plt.subplots(figsize=(8,8))
-    utils.plot_graph(ax, D, points, "Delaunay Graph")
+    if type_opt == "CVFG":
+        utils.plot_graph_value_function(ax, D, points, c_D, v_D, {i: s_D[i, T].X for i in V_D}, "Delaunay Graph")
+    else:
+        utils.plot_graph(ax, D, points, "Delaunay Graph")
     plt.savefig(f"{save_path}/Delaunay.png")
 
     return True

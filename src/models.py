@@ -380,13 +380,72 @@ def CF2_improved(G, T, n_firefighters, F, alpha=0.7, beta=0.5):
 
     return m, x, d
 
+def CVFG(G, T, F, c, v, B):
+    V = utils.get_V(G)
+
+    m = gp.Model("CVFG")
+
+    # 4.1i
+    b = m.addVars(V, range(0, T+1), vtype=GRB.BINARY, name="b")
+    # 4.1j
+    d = m.addVars(V, range(1, T+1), vtype=GRB.BINARY, name="d")
+    # total amount of defense budget spent on vertex i up to and including time t
+    # 4.1k
+    s = m.addVars(V, range(0, T+1), vtype=GRB.CONTINUOUS, lb=0,
+    ub={(i, t): c[i] for i in V for t in range(0, T+1)}, 
+    name="s")
+
+    m.addConstrs(
+        (b[i, t-1] <= b[i, t] for i in V for t in range(1, T+1)),
+        name="4.1b"
+    )
+
+    m.addConstrs(
+        (d[i, t-1] <= d[i, t] for i in V for t in range(2, T+1)),
+        name="4.1c"
+    )
+
+    m.addConstrs(
+        (b[i, t-1] <= b[j, t] + d[j, t] for i in V for j in utils.get_N(i, G) for t in range(1, T+1)),
+        name="4.1d"
+    )
+
+    # max B defensive budget per timestep
+    m.addConstrs(
+        (gp.quicksum(s[i, t] - s[i, t-1] for i in V) <= B for t in range(1, T+1)),
+        name="4.1e"
+    )
+
+    # dsufficient defensive budget spent on the node
+    m.addConstrs(
+        (c[i]*d[i, t] <= s[i, t] for i in V for t in range(1, T+1)),
+        name="4.1f"
+    )
+
+    # 4.1g -> no node starts with spent defensive budget
+    for i in V:
+        s[i, 0].ub = 0
+
+    # 4.1h
+    for i in F:
+        b[i, 0].lb = 1
+        b[i, 0].ub = 1
+
+    # 4.1a -> minimize the value of burning vertices
+    m.setObjective(gp.quicksum(v[i]*b[i, T] for i in V), GRB.MINIMIZE)
+
+    m.optimize()
+
+    return m, b, d, s
+
 optimization_problems = {
     "CFG": CFG,
     "CFG_improved": CFG_improved,
     "CF1": CF1,
     "CF1_improved": CF1_improved,
     "CF2": CF2,
-    "CF2_improved": CF2_improved
+    "CF2_improved": CF2_improved,
+    "CVFG": CVFG
 }
 
 relax_availables = ["defense", "fires", "none"]

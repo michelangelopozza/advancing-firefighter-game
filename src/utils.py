@@ -2,6 +2,7 @@ import numpy as np
 import networkx as nx
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from src.graph_generation import getPoints, DelaunayGraph, GabrielGraph
 from src.graph_status import Status
 import gurobipy as gp
@@ -309,3 +310,126 @@ def preprocessing_x(G, V, F, T, x):
                 x[j, i, t].lb = 0
                 x[j, i, t].ub = 0
     return x
+
+def get_cost_value(V, F, seed):
+    c = {i:0 for i in V}
+    v = {i:0 for i in V}
+    np.random.seed(seed)
+
+    for i in V:
+        if i not in F:
+            c[i] = np.random.uniform(5, 25)
+            v[i] = np.random.uniform(0.5*c[i], 1.5*c[i])
+    
+    return c, v
+
+def get_defense_budget(n_firefighters):
+    return 25*(n_firefighters+1)/2
+
+def graph_animation_value_function(file_name, points, G, V, F, T, b, d, s, c, v):
+
+    fig, ax = plt.subplots(figsize=(8,8))
+
+    anim = animation.FuncAnimation(
+        fig, 
+        update_graph_frame_value_function, 
+        fargs=(ax, points, G, V, F, b, d, s, c, v),
+        frames = 2*(T+1), interval = 1000) 
+    anim.save(file_name, writer="pillow", fps=1) 
+
+    plt.close(fig)
+
+def update_graph_frame_value_function(frame, ax, points, G, V, F, b, d, s, c, v):
+
+    if frame == 0:
+        burnNodes(G, F)
+        s_0 = {i: s[i, 0].X for i in V}
+        plot_graph_value_function(ax, G, points, c, v, s_0, "t0")
+    elif frame % 2 != 0:
+        t = round((frame+1)/2)
+        D = []
+        for i in V:
+            if round(d[i, t].X) == 1:
+                D.append(i)
+        setDefenders(G, D)
+        s_t = {i: s[i, t].X for i in V}
+        plot_graph_value_function(ax, G, points, c, v, s_t, f"t={t}: set defenders")
+    else:
+        t = round(frame/2)
+        F_prime = []
+        for i in V:
+            if round(b[i, t].X) == 1:
+                F_prime.append(i)
+        burnNodes(G, F_prime)
+        s_t = {i: s[i, t].X for i in V}
+        plot_graph_value_function(ax, G, points, c, v, s_t, f"t={t}: burning nodes")
+
+
+def plot_graph_value_function(ax, G, points, c, v, s, title):
+
+    ax.clear()
+
+    ax.set_xlim(MIN_COORD, MAX_COORD)
+    ax.set_ylim(MIN_COORD, MAX_COORD)
+
+    ax.set_xticks(np.arange(MIN_COORD, MAX_COORD+1, 1))
+    ax.set_yticks(np.arange(MIN_COORD, MAX_COORD+1, 1))
+
+    ax.grid(True, linestyle="--", linewidth=0.5)
+
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_title(title)
+
+    ax.set_aspect("equal")
+
+    n_points = len(points)
+
+    keys = np.zeros(n_points).astype(int)
+    for i in range(n_points):
+        keys[i] = i
+    
+    pos = dict(zip(keys, points))
+
+    nx.draw_networkx_edges(
+        G,
+        pos=pos,
+        ax=ax,
+        edge_color='g',
+        width=1.5
+    )
+
+    for i in range(n_points):
+        
+        color = 'black'
+        
+        if G.nodes[i]['status'].value == 'defended':
+            color = 'darkblue'
+        elif G.nodes[i]['status'].value == 'burning':
+            color = 'red' 
+        else:
+            s_frac = s[i] / c[i] if c[i] > 0 else 0
+            if s_frac > 0:
+                color = cm.Blues(0.2 + 0.6 * min(s_frac, 1)) 
+        
+        ax.scatter(
+            points[i, 0],
+            points[i, 1],
+            color=color
+        )
+
+
+    for i, (x, y) in enumerate(points):
+        ax.text(
+            x+0.1,
+            y-0.2,
+            str(i),
+            fontsize=10,
+            color='black'
+        )
+        ax.text(
+            x, 
+            y+0.2, 
+            f"c={c[i]:.0f} v={v[i]:.0f}", 
+            fontsize=10
+        )
