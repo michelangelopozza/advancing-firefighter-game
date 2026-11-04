@@ -438,6 +438,88 @@ def CVFG(G, T, F, c, v, B):
 
     return m, b, d, s
 
+def CVFG_improved(G, T, F, c, v, B, alpha=0.7, relax="none"):
+
+    assert 0 <= alpha <= 1, "alpha must be in [0,1]"
+    assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
+
+    V = utils.get_V(G)
+
+    m = gp.Model("CVFG_improved")
+
+    vtype_b = GRB.BINARY
+    vtype_d = GRB.BINARY
+
+    # relax none or one of the variables
+    if relax == "defense":
+        vtype_d = GRB.CONTINUOUS
+    elif relax == "fires":
+        vtype_b = GRB.CONTINUOUS
+
+    # 4.1i
+    b = m.addVars(V, range(0, T+1), vtype=vtype_b, lb=0, ub=1, name="b")
+    # 4.1j
+    d = m.addVars(V, range(1, T+1), vtype=vtype_d, lb=0, ub=1, name="d")
+    # total amount of defense budget spent on vertex i up to and including time t
+    # 4.1k
+    s = m.addVars(V, range(0, T+1), vtype=GRB.CONTINUOUS, lb=0,
+    ub={(i, t): c[i] for i in V for t in range(0, T+1)}, 
+    name="s")
+
+    m.addConstrs(
+        (b[i, t-1] <= b[i, t] for i in V for t in range(1, T+1)),
+        name="4.1b"
+    )
+
+    m.addConstrs(
+        (b[i, t-1] <= b[j, t] + d[j, t] for i in V for j in utils.get_N(i, G) for t in range(1, T+1)),
+        name="4.1d"
+    )
+
+    # max B defensive budget per timestep
+    m.addConstrs(
+        (gp.quicksum(s[i, t] for i in V) <= t*B for t in range(1, T+1)),
+        name="4.2"
+    )
+
+    # dsufficient defensive budget spent on the node
+    m.addConstrs(
+        (c[i]*d[i, t] <= s[i, t] for i in V for t in range(1, T+1)),
+        name="4.1f"
+    )
+
+    m.addConstrs(
+        (b[i, t] + d[i, t] <= 1 for i in V for t in range(1, math.ceil(alpha*T)+1)),
+        name="4.3alpha"
+    )
+
+    m.addConstrs(
+        (s[i, t-1] <= s[i, t] for i in V for t in range(1, T+1)),
+        name="4.5"
+    )
+
+    m.addConstrs((s[i, T] == c[i] * d[i, T] for i in V), name="4.6")
+
+    k = utils.get_largest_k(c, B, len(V), len(F), T)
+    m.addConstrs(
+        (gp.quicksum(d[i, t] for i in V) <= k[t] for t in range(1, T+1)),
+        name="4.7"
+    )
+
+    # 4.1h
+    for i in F:
+        b[i, 0].lb = 1
+        b[i, 0].ub = 1
+
+    b = utils.preprocessing_b(G, V, F, T, b)
+
+    # 4.1a -> minimize the value of burning vertices
+    m.setObjective(gp.quicksum(v[i]*b[i, T] for i in V), GRB.MINIMIZE)
+
+    m.optimize()
+
+    return m, b, d, s
+
 optimization_problems = {
     "CFG": CFG,
     "CFG_improved": CFG_improved,
@@ -445,7 +527,8 @@ optimization_problems = {
     "CF1_improved": CF1_improved,
     "CF2": CF2,
     "CF2_improved": CF2_improved,
-    "CVFG": CVFG
+    "CVFG": CVFG,
+    "CVFG_improved": CVFG_improved
 }
 
 relax_availables = ["defense", "fires", "none"]

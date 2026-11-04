@@ -433,3 +433,19 @@ def plot_graph_value_function(ax, G, points, c, v, s, title):
             f"c={c[i]:.0f} v={v[i]:.0f}", 
             fontsize=10
         )
+
+def get_largest_k(c, B, n_points, f, T):
+    c_sorted = dict(sorted(c.items(), key=lambda item: item[1]))
+    c_sorted_values = list(c_sorted.values())
+    c_gamma = {i: c_sorted_values[i-1] for i in range(1, len(c_sorted)+1)}
+
+    k = np.zeros(T+1, dtype=int)
+
+    for t in range(T+1):
+        # < so the cycle ends with k[t]=n-f
+        while k[t] < n_points - f:
+            if sum(c_gamma[r+f] for r in range(1, k[t]+2)) > t*B:
+                break
+            k[t] += 1
+            
+    return k            
