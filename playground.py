@@ -37,3 +37,5 @@ print(F)
 print(set(N) & set(F))
 
 print(G.edges())
+
+print(V[0])
