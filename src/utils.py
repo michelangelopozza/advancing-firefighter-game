@@ -449,3 +449,50 @@ def get_largest_k(c, B, n_points, f, T):
             k[t] += 1
             
     return k            
+
+def get_largest_r(c, B, n_points):
+    c_sorted = dict(sorted(c.items(), key=lambda item: item[1], reverse=True))
+    c_sorted_values = list(c_sorted.values())
+    c_sigma = {i: c_sorted_values[i-1] for i in range(1, len(c_sorted)+1)}
+
+    r = 1
+
+    # < so the cycle ends with s(um(c_gamma)_k=1^r)=B
+    while sum(c_sigma[k] for k in range(1, r+1)) <= B:
+        if r == n_points:
+            return r
+        r += 1
+
+        return r-1
+
+def get_largest_t(c, B, n_points, f):
+    c_sorted = dict(sorted(c.items(), key=lambda item: item[1]))
+    c_sorted_values = list(c_sorted.values())
+    c_gamma = {i: c_sorted_values[i-1] for i in range(1, len(c_sorted)+1)}
+
+    t_best = n_points
+
+    for t in range(1, n_points-f+1):
+        if sum(c_gamma[r] for r in range(t+f+1, n_points+1)) <= t*B:
+            if t < t_best:
+                t_best = t
+            
+    return t_best
+
+def get_T_max_CVFG(V, F, d, c, B):
+    """
+        Function to extract the five optimal Tmax to use in the optimization problems
+        Reference 4.3
+    """
+    n = len(V)
+    f = len(F)
+    r = get_largest_r(c, B, len(V))
+
+    Tmax_c0 = n
+    Tmax_c1 = n - f
+    Tmax_c2 = math.ceil(sum(c[i]/B for i in V))
+    Tmax_c3 = math.ceil(sum(c[i]/(B+min(c[j] for j in set(V)-set(F))) for i in V))
+    Tmax_c4 = math.ceil((n-f)/(r+1))
+    Tmax_c5 = math.ceil(get_largest_t)
+
+    return [Tmax_c0, Tmax_c1, Tmax_c2, Tmax_c3, Tmax_c4, Tmax_c5]
