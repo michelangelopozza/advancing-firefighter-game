@@ -349,7 +349,7 @@ def update_graph_frame_value_function(frame, ax, points, G, V, F, b, d, s, c, v)
         t = round((frame+1)/2)
         D = []
         for i in V:
-            if round(d[i, t].X) == 1:
+            if round(d[i, t].X) == 1 and G.nodes[i]["status"] != Status.BURNING:
                 D.append(i)
         setDefenders(G, D)
         s_t = {i: s[i, t].X for i in V}
