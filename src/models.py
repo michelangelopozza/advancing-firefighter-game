@@ -124,7 +124,9 @@ def CF1(G, T, n_firefighters, F):
 
     m = gp.Model("CF1")
 
+    # 3.5e
     b_hat = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="b_hat")
+    # 3.5f
     d_hat = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="d_hat")
 
     # max n_firefighters set each time step
@@ -520,6 +522,57 @@ def CVFG_improved(G, T, F, c, v, B, alpha=0.7, relax="none"):
 
     return m, b, d, s
 
+def CVF1(G, T, F, c, v, B):
+    V = utils.get_V(G)
+
+    m = gp.Model("CVF1")
+
+    # 3.5e
+    b_hat = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="b_hat")
+    # 3.5f
+    d_hat = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="d_hat")
+    # total amount of defense budget spent on vertex i up to and including time t
+    # 4.1k
+    s = m.addVars(V, range(0, T+1), vtype=GRB.CONTINUOUS, lb=0,
+    ub={(i, t): c[i] for i in V for t in range(0, T+1)}, 
+    name="s")
+
+    # vertex j adjacent to i burning at t-1 must be defended or burn at time t
+    m.addConstrs(
+        (gp.quicksum(b_hat[i, r] for r in range(0, t)) <= gp.quicksum(b_hat[j, r] 
+        for r in range(0, t+1)) + gp.quicksum(d_hat[j, r] for r in range(1, t+1)) 
+        for i in V for j in utils.get_N(i, G) for t in range(1, T+1)),
+        name="3.5c"
+    )
+
+    # 3.5d -> set vertices in F to burn at t=0
+    for i in F:
+        b_hat[i, 0].lb = 1
+        b_hat[i, 0].ub = 1
+
+    # max B defensive budget per timestep
+    m.addConstrs(
+        (gp.quicksum(s[i, t] - s[i, t-1] for i in V) <= B for t in range(1, T+1)),
+        name="4.1e"
+    )
+
+    # 4.1g -> no node starts with spent defensive budget
+    for i in V:
+        s[i, 0].ub = 0
+
+    
+    m.addConstrs(
+        (c[i]*gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= s[i, t] for i in V for t in range(1, T+1)),
+        name="4.8b"
+    )
+
+    # 4.8a -> minimize the value of burning vertices
+    m.setObjective(gp.quicksum(v[i]*b_hat[i, t] for i in V for t in range(0, T+1)), GRB.MINIMIZE)
+
+    m.optimize()
+
+    return m, b_hat, d_hat, s
+
 optimization_problems = {
     "CFG": CFG,
     "CFG_improved": CFG_improved,
@@ -528,7 +581,8 @@ optimization_problems = {
     "CF2": CF2,
     "CF2_improved": CF2_improved,
     "CVFG": CVFG,
-    "CVFG_improved": CVFG_improved
+    "CVFG_improved": CVFG_improved,
+    "CVF1": CVF1
 }
 
 relax_availables = ["defense", "fires", "none"]

@@ -145,7 +145,7 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     elif type_opt == "CF2_improved":
         m_G, x_G, d_G = opt(G, T, n_firefighters, F_G, alpha, beta)
         m_D, x_D, d_D = opt(D, T, n_firefighters, F_D, alpha, beta) 
-    elif type_opt == "CVFG":
+    elif type_opt == "CVFG" or type_opt == "CVF1":
         m_G, b_G, d_G, s_G = opt(G, T, F_G, c_G, v_G, budget)
         m_D, b_D, d_D, s_D = opt(D, T, F_D, c_D, v_D, budget)
     elif type_opt == "CVFG_improved":
@@ -155,7 +155,7 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
     if type_opt == "CFG" or type_opt == "CFG_improved" or type_opt == "CVFG" or type_opt == "CVFG_improved":
         T_opt_G = utils.get_T_opt(b_G, V_G, T)
         T_opt_D = utils.get_T_opt(b_D, V_D, T)
-    elif type_opt == "CF1" or type_opt == "CF1_improved":
+    elif type_opt == "CF1" or type_opt == "CF1_improved" or type_opt == "CVF1":
         T_opt_G = utils.get_T_opt_CF1(b_G, V_G, T)
         T_opt_D = utils.get_T_opt_CF1(b_D, V_D, T)
     elif type_opt == "CF2" or type_opt == "CF2_improved":
@@ -166,7 +166,7 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
         b_G = utils.extract_b_from_x_CF2(x_G, V_G, T, F_G)
         b_D = utils.extract_b_from_x_CF2(x_D, V_D, T, F_D)
     
-    if type_opt == "CVFG" or type_opt == "CVFG_improved":
+    if type_opt == "CVFG" or type_opt == "CVFG_improved" or type_opt == "CVF1":
         utils.graph_animation_value_function(f"{save_path}/Gabriel_animation.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G, s_G, c_G, v_G)
         utils.graph_animation_value_function(f"{save_path}/Delaunay_animation.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D, s_D, c_D, v_D)    
     else:
@@ -174,14 +174,14 @@ def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighter
         utils.graph_animation(f"{save_path}/Delaunay_animation.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)
     
     fig, ax = plt.subplots(figsize=(8,8))
-    if type_opt == "CVFG" or type_opt == "CVFG_improved":
+    if type_opt == "CVFG" or type_opt == "CVFG_improved" or type_opt == "CVF1":
         utils.plot_graph_value_function(ax, G, points, c_G, v_G, {i: s_G[i, T].X for i in V_G}, "Gabriel Graph")
     else:
         utils.plot_graph(ax, G, points, "Gabriel Graph")
     plt.savefig(f"{save_path}/Gabriel.png")
 
     fig, ax = plt.subplots(figsize=(8,8))
-    if type_opt == "CVFG" or type_opt == "CVFG_improved":
+    if type_opt == "CVFG" or type_opt == "CVFG_improved" or type_opt == "CVF1":
         utils.plot_graph_value_function(ax, D, points, c_D, v_D, {i: s_D[i, T].X for i in V_D}, "Delaunay Graph")
     else:
         utils.plot_graph(ax, D, points, "Delaunay Graph")
