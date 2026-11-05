@@ -43,5 +43,4 @@ print(V[0])
 c, v = utils.get_cost_value(V, F, 45)
 B = utils.get_defense_budget(n_firefighters=1)
 
-#utils.get_largest_k(c, B, 10, 1)
-print(len(V))
+utils.get_largest_r(c, B, 10)
