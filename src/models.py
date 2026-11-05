@@ -229,9 +229,11 @@ def CF2(G, T, n_firefighters, F):
 
     m = gp.Model("CF2")
 
+    # 3.11g
     # x_ij^t is 1 if the fire spreads from vertex i to j at time t
     x = m.addVars(((i, j, t) for i in V for j in utils.get_N(i, G) for t in range(1, T+1)), 
     vtype=GRB.BINARY, name="x")
+    # 3.11f
     d = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="d")
 
     m.addConstrs(
@@ -573,6 +575,83 @@ def CVF1(G, T, F, c, v, B):
 
     return m, b_hat, d_hat, s
 
+def CVF2(G, T, F, c, v, B):
+    V = utils.get_V(G)
+
+    m = gp.Model("CVF2")
+
+    # x_ij^t is 1 if the fire spreads from vertex i to j at time t
+    x = m.addVars(((i, j, t) for i in V for j in utils.get_N(i, G) for t in range(1, T+1)), 
+    vtype=GRB.BINARY, name="x")
+    d = m.addVars(V, range(0, T+1), vtype=GRB.BINARY, name="d")
+    # total amount of defense budget spent on vertex i up to and including time t
+    # 4.1k
+    s = m.addVars(V, range(0, T+1), vtype=GRB.CONTINUOUS, lb=0,
+    ub={(i, t): c[i] for i in V for t in range(0, T+1)}, 
+    name="s")
+
+    m.addConstrs(
+        (d[i, t-1] <= d[i, t] for i in V for t in range(1, T+1)),
+        name="3.1c"
+    )
+
+    # case for t=1: vertices adjacent to F must be defended at t=1 or the fire will burn them
+    m.addConstrs(
+        (1 <= d[i, 1] + gp.quicksum(x[k, i, 1] for k in (set(utils.get_N(i, G)) & set(F))) for i in (set(utils.get_N_set(F, G))-set(F))),
+        name="3.11b"
+    )
+
+    # case for t>=2: 
+        # -take all the nodes not in F, compute their neighborhood N(i)
+        # -if the fire reaches i at time t-1
+            # -then at t the fires spread to j (neighbors of i)
+            # -or the node is already defended (d_j^t)
+            # -or it has been already burned by others nodes (neighbors of the neighbors of i)
+    m.addConstrs(
+        (gp.quicksum(x[k, i, t-1] for k in set(utils.get_N(i, G)) - {j}) <= x[i, j, t] + d[j, t] + 
+        gp.quicksum(gp.quicksum(x[k, j, r] for k in (set(utils.get_N(j, G))-set({i}))) 
+        for r in range(max(1, t-2),t+1)) for i in (set(V)-set(F)) 
+        for j in utils.get_N(i, G) for t in range(2, T+1)),
+        name="3.11c"
+    )
+
+    # 3.11d -> no spontaneous ignition constraint
+    for i in (set(V)-set(F)):
+        for j in utils.get_N(i, G):
+            x[i, j, 1].ub = 0
+            x[i, j, 1].lb = 0
+
+    # 3.11e -> no spontaneous ignition constraint
+    m.addConstrs(
+        (x[i, j, t] <= gp.quicksum(x[k, i, t-1] for k in (set(utils.get_N(i, G))-set({j}))) 
+        for i in (set(V)-set(F)) for j in utils.get_N(i, G) for t in range(2, T+1)),
+        name="3.11e"
+    )
+
+    # max B defensive budget per timestep
+    m.addConstrs(
+        (gp.quicksum(s[i, t] - s[i, t-1] for i in V) <= B for t in range(1, T+1)),
+        name="4.1e"
+    )
+
+    # dsufficient defensive budget spent on the node
+    m.addConstrs(
+        (c[i]*d[i, t] <= s[i, t] for i in V for t in range(1, T+1)),
+        name="4.1f"
+    )
+
+    # 4.1g -> no node starts with spent defensive budget
+    for i in V:
+        s[i, 0].ub = 0
+
+    # 4.9a -> minimize the value of burning vertices
+    m.setObjective(gp.quicksum(gp.quicksum(gp.quicksum(v[j]*x[i, j, t] for t in range(1, T+1)) 
+    for j in utils.get_N(i, G)) for i in V), GRB.MINIMIZE)
+
+    m.optimize()
+
+    return m, x, d, s
+
 optimization_problems = {
     "CFG": CFG,
     "CFG_improved": CFG_improved,
@@ -582,7 +661,8 @@ optimization_problems = {
     "CF2_improved": CF2_improved,
     "CVFG": CVFG,
     "CVFG_improved": CVFG_improved,
-    "CVF1": CVF1
+    "CVF1": CVF1,
+    "CVF2": CVF2
 }
 
 relax_availables = ["defense", "fires", "none"]
