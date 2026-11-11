@@ -252,6 +252,15 @@ def test_information_vocabulary(nodes, n_fires, n_firefighters, info_G, info_D):
 
     return general_info | info_G | info_D
 
+def test_2_information_vocabulary(n_T_max, nodes, T_value, info_G, info_D):
+    general_info = {
+        "T_max_type": n_T_max,
+        "Nodes": nodes,
+        "T": T_value,
+    }
+
+    return general_info | info_G | info_D
+
 def append_to_csv(info, path):
     info["Gabriel_Time"] = format(info["Gabriel_Time"], ".4f")
     info["Delaunay_Time"] = format(info["Delaunay_Time"], ".4f")
@@ -408,9 +417,9 @@ def plot_graph_value_function(ax, G, points, c, v, s, title):
         elif G.nodes[i]['status'].value == 'burning':
             color = 'red' 
         else:
-            s_frac = s[i] / c[i] if c[i] > 0 else 0
+            s_frac = s[i]/c[i] if c[i] > 0 else 0
             if s_frac > 0:
-                color = cm.Blues(0.2 + 0.6 * min(s_frac, 1)) 
+                color = cm.Blues(0.2+0.6*min(s_frac, 1)) 
         
         ax.scatter(
             points[i, 0],
