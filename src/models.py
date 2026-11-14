@@ -55,15 +55,16 @@ def CFG(G, T, n_firefighters, F):
 
     return m, b, d
 
-
-def CFG_improved(G, T, n_firefighters, F, alpha=0.7, relax="none"):
+def CFG_improved(G, T, n_firefighters, F, relax="none", alpha="none", preprocessing="false", defense="3.1f", other_constraints=[]):
 
     assert 0 <= alpha <= 1, "alpha must be in [0,1]"
     assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
+    assert preprocessing == "True" or preprocessing == "False", "preproccesing must me True or False"
+    assert defense == "3.1f" or defense == "3.2", "defense must include one of the following constraints: 3.1f or 3.2"
 
     V = utils.get_V(G)
 
-    m = gp.Model("CFG_improved")
+    m = gp.Model("CFG_with_options")
 
     vtype_b = GRB.BINARY
     vtype_d = GRB.BINARY
@@ -77,7 +78,6 @@ def CFG_improved(G, T, n_firefighters, F, alpha=0.7, relax="none"):
     # 3.1i
     b = m.addVars(V, range(T+1), vtype=vtype_b, lb=0, ub=1, name="b")
     d = m.addVars(V, range(T+1), vtype=vtype_d, lb=0, ub=1, name="d")
-
 
     m.addConstrs(
         (b[i, t-1] <= b[i, t] for i in V for t in range(1, T+1)),
@@ -94,29 +94,119 @@ def CFG_improved(G, T, n_firefighters, F, alpha=0.7, relax="none"):
         name="3.1d"
     )
 
-    m.addConstrs(
-        (b[i, t] + d[i, t] <= 1 for i in V for t in range(1, math.ceil(alpha*T)+1)),
-        name="3.1e_alpha"
-    )
+    if "3.1e" in other_constraints:
+        m.addConstrs(
+            (b[i, t] + d[i, t] <= 1 for i in V for t in range(1, T+1)),
+            name="3.1e"
+        )
+    
+    if "3.1e_alpha" in other_constraints:
+        m.addConstrs(
+            (b[i, t] + d[i, t] <= 1 for i in V for t in range(1, math.ceil(alpha*T)+1)),
+            name="3.1e_alpha"
+        )
 
-    m.addConstrs(
-        (gp.quicksum(d[i, t] for i in V) <= n_firefighters*t for t in range(1, T+1)),
-        name="3.2"
-    )
+    if "3.4" in other_constraints:
+        m.addConstrs(
+            (b[i, T] + d[i, T] <= 1 for i in V),
+            name="3.4"
+        )
 
-    for i in F:
-        # 3.1g
-        b[i, 0].lb = 1
-        b[i, 0].ub = 1
-        
+    if defense == "3.1f":
+        m.addConstrs(
+            (gp.quicksum(d[i, t] - d[i, t-1] for i in V) <= n_firefighters for t in range(1, T+1)),
+            name="3.1f"
+        )
+    
+    if defense == "3.2":
+        m.addConstrs(
+            (gp.quicksum(d[i, t] for i in V) <= n_firefighters*t for t in range(1, T+1)),
+            name="3.2"
+        )
+
+    # 3.1g, 3.1h
+    for i in V:
+        # fix nodes in F to burn in t=0 (3.1g)
+        if i in F:
+            b[i, 0].lb = 1
+            b[i, 0].ub = 1
+        # fix defense to 0 for t=0 (3.1h)
+        d[i, 0].lb = 0
+        d[i, 0].ub = 0
+    
     # preprocessing
-    b = utils.preprocessing_b(G, V, F, T, b)
+    if preprocessing:
+        b = utils.preprocessing_b(G, V, F, T, b)
 
+    # 3.1a
     m.setObjective(gp.quicksum(b[i, T] for i in V), GRB.MINIMIZE)
 
     m.optimize()
 
     return m, b, d
+
+
+# def CFG_improved(G, T, n_firefighters, F, alpha=0.7, relax="none"):
+
+#     assert 0 <= alpha <= 1, "alpha must be in [0,1]"
+#     assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
+
+#     V = utils.get_V(G)
+
+#     m = gp.Model("CFG_improved")
+
+#     vtype_b = GRB.BINARY
+#     vtype_d = GRB.BINARY
+
+#     # relax none or one of the variables
+#     if relax == "defense":
+#         vtype_d = GRB.CONTINUOUS
+#     elif relax == "fires":
+#         vtype_b = GRB.CONTINUOUS
+
+#     # 3.1i
+#     b = m.addVars(V, range(T+1), vtype=vtype_b, lb=0, ub=1, name="b")
+#     d = m.addVars(V, range(T+1), vtype=vtype_d, lb=0, ub=1, name="d")
+
+
+#     m.addConstrs(
+#         (b[i, t-1] <= b[i, t] for i in V for t in range(1, T+1)),
+#         name="3.1b"
+#     )
+
+#     m.addConstrs(
+#         (d[i, t-1] <= d[i, t] for i in V for t in range(1, T+1)),
+#         name="3.1c"
+#     )
+
+#     m.addConstrs(
+#         (b[i, t-1] <= b[j, t] + d[j, t] for i in V for j in utils.get_N(i, G) for t in range(1, T+1)),
+#         name="3.1d"
+#     )
+
+#     m.addConstrs(
+#         (b[i, t] + d[i, t] <= 1 for i in V for t in range(1, math.ceil(alpha*T)+1)),
+#         name="3.1e_alpha"
+#     )
+
+#     m.addConstrs(
+#         (gp.quicksum(d[i, t] for i in V) <= n_firefighters*t for t in range(1, T+1)),
+#         name="3.2"
+#     )
+
+#     for i in F:
+#         # 3.1g
+#         b[i, 0].lb = 1
+#         b[i, 0].ub = 1
+        
+#     # preprocessing
+#     b = utils.preprocessing_b(G, V, F, T, b)
+
+#     m.setObjective(gp.quicksum(b[i, T] for i in V), GRB.MINIMIZE)
+
+#     m.optimize()
+
+#     return m, b, d
 
 def CF1(G, T, n_firefighters, F):
 

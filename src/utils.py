@@ -261,9 +261,20 @@ def test_2_information_vocabulary(n_T_max, nodes, T_value, info_G, info_D):
 
     return general_info | info_G | info_D
 
+def test_3_information_vocabulary(relaxation, info_G, info_D):
+    general_info = {
+        "Relaxation": relaxation
+    }
+
+    return general_info | info_G | info_D
+
 def append_to_csv(info, path):
     info["Gabriel_Time"] = format(info["Gabriel_Time"], ".4f")
+    info["Gabriel_T_opt"] = format(info["Gabriel_T_opt"], ".4f")
+    info["Gabriel_Burn"] = format(info["Gabriel_Burn"], ".4f")
     info["Delaunay_Time"] = format(info["Delaunay_Time"], ".4f")
+    info["Delaunay_T_opt"] = format(info["Delaunay_T_opt"], ".4f")
+    info["Delaunay_Burn"] = format(info["Delaunay_Burn"], ".4f")
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     write_header = not os.path.exists(path) or os.path.getsize(path) == 0
     with open(path, "a", newline="") as f:

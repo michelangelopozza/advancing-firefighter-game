@@ -1,0 +1,4 @@
+Relaxation,Gabriel_Time,Gabriel_Gap,Gabriel_Opt,Gabriel_T_opt,Gabriel_Burn,Delaunay_Time,Delaunay_Gap,Delaunay_Opt,Delaunay_T_opt,Delaunay_Burn
+none,0.0378,0.0,45.0,2.0889,8.0667,0.1793,0.0,45.0,2.7333,14.9556
+fires,0.0504,0.0,45.0,2.0667,8.0667,0.1590,0.0,45.0,2.7333,14.9556
+defense,0.0587,0.0,45.0,2.0667,8.0667,0.2168,0.0,45.0,2.6000,14.9556

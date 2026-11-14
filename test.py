@@ -186,6 +186,69 @@ def test_2():
 
     utils.from_csv_to_pdf(f"{RESULTS_PATH}/{test_name}.csv", f"{RESULTS_PATH}/{test_name}.pdf")
 
+def test_3():
+    test_name = "test_3"
+
+    csv_path = f"{RESULTS_PATH}/{test_name}.csv"
+
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
+    for idx, config in enumerate(config_test_3):
+        
+        relaxation = config
+
+        info_G = []
+        info_D = []
+
+        print(relaxation)
+
+        for params in params_test_3:
+            n_points = params["n_points"]
+            n_fires = params["n_fires"]
+            n_firefighters = params['n_firefighters']
+
+            # Max T in the classical formulation corresponds to the number of points
+            T_max_all = utils.get_T_max(n_points, n_fires, n_firefighters)
+            
+            # using T_max_4
+            T_max = T_max_all[-1]
+
+
+            for i, seed in enumerate(SEEDS):
+                # generate n_points random points in the plane [0,10]^2 as described in the data generation part
+                points = getPoints(n_points, seed)
+
+                T = T_max 
+
+                # given the points generate its Gabriel and Delaunay Graph
+                G = GabrielGraph(points)
+                D = DelaunayGraph(points)
+
+                # get the F set
+                F_G = utils.getF(G, n_fires)
+                F_D = utils.getF(D, n_fires)
+
+                V_G = list(G.nodes())
+                V_D = list(D.nodes())
+
+                m_G, b_G, d_G = CFG_improved(G, T, n_firefighters, F_G, relaxation)
+                m_D, b_D, d_D = CFG_improved(D, T, n_firefighters, F_D, relaxation)
+
+                T_opt_G = utils.get_T_opt(b_G, V_G, T)
+                T_opt_D = utils.get_T_opt(b_D, V_D, T)
+
+                info_G.append(utils.results_single_graph_vocabulary(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
+                info_D.append(utils.results_single_graph_vocabulary(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
+
+        total_info_G = utils.compute_mean_graph_vocabulary(info_G, len(params_test_3)*len(SEEDS), "Gabriel")
+        total_info_D = utils.compute_mean_graph_vocabulary(info_D, len(params_test_3)*len(SEEDS), "Delaunay")
+
+        info = utils.test_3_information_vocabulary(relaxation, total_info_G, total_info_D)
+
+        utils.append_to_csv(info, f"{RESULTS_PATH}/{test_name}.csv")
+
+    utils.from_csv_to_pdf(f"{RESULTS_PATH}/{test_name}.csv", f"{RESULTS_PATH}/{test_name}.pdf")
+
 def perform_simple_graphic_test(n_points, seed, type_opt, n_fires, n_firefighters, alpha, relax, beta):
     save_path = f"{PLOT_PATH}/simple_test_{type_opt}"
     os.makedirs(save_path, exist_ok=True)
@@ -314,4 +377,6 @@ if __name__ == "__main__":
         test_1()
     elif test == "test_2":
         test_2()
+    elif test == "test_3":
+        test_3()
                 
