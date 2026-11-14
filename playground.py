@@ -47,3 +47,4 @@ utils.get_largest_r(c, B, 10)
 
 array = ["aa", "bb"]
 print("a" in array)
+print(*array)
