@@ -47,6 +47,7 @@ params_test_3 = [
 
 grid_test_4 = {
     "preprocessing": ["False", "True"],
+    "alpha": [0.1],
     "defense": ["3.1f", "3.2"],
     "other_constraints": [[], ["3.1e"], ["3.4"], ["3.1e_alpha"]]
 }

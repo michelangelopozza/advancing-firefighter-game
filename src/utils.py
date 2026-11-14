@@ -230,6 +230,14 @@ def results_single_graph_vocabulary(G, V, T, m, b, d, type_graph): # type_graph:
         f"{type_graph}_Burn": calculate_burned_nodes(b, V, T_opt)
     }
 
+def results_single_graph_vocabulary_other_tests(G, V, T, m, b, d, type_graph): # type_graph: Gabriel or Delaunay
+    T_opt=get_T_opt(b, V, T)
+    return {
+        f"{type_graph}_Time": m.Runtime,
+        f"{type_graph}_Gap": 100*m.MIPGAP,
+        f"{type_graph}_Opt": int(m.Status==GRB.OPTIMAL)
+    }
+
 def compute_mean_graph_vocabulary(info, N_test, type_graph):
     sums = {key:0.0 for key in info[0]}
 
@@ -268,13 +276,18 @@ def test_3_information_vocabulary(relaxation, info_G, info_D):
 
     return general_info | info_G | info_D
 
+def test_4_information_vocabulary(preproccesing, defense, other_constraints, info_G, info_D):
+    general_info = {
+        "Preprocessing": preproccesing,
+        "Defense": defense,
+        "Other": str(*other_constraints)
+    }
+
+    return general_info | info_G | info_D
+
 def append_to_csv(info, path):
     info["Gabriel_Time"] = format(info["Gabriel_Time"], ".4f")
-    info["Gabriel_T_opt"] = format(info["Gabriel_T_opt"], ".4f")
-    info["Gabriel_Burn"] = format(info["Gabriel_Burn"], ".4f")
     info["Delaunay_Time"] = format(info["Delaunay_Time"], ".4f")
-    info["Delaunay_T_opt"] = format(info["Delaunay_T_opt"], ".4f")
-    info["Delaunay_Burn"] = format(info["Delaunay_Burn"], ".4f")
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     write_header = not os.path.exists(path) or os.path.getsize(path) == 0
     with open(path, "a", newline="") as f:

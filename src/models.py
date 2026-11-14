@@ -8,6 +8,7 @@ def CFG(G, T, n_firefighters, F):
     V = utils.get_V(G)
 
     m = gp.Model("CFG")
+    m.Params.OutputFlag = 0
 
     # 3.1i
     b = m.addVars(V, range(T+1), vtype=GRB.BINARY, name="b")
@@ -55,7 +56,7 @@ def CFG(G, T, n_firefighters, F):
 
     return m, b, d
 
-def CFG_improved(G, T, n_firefighters, F, relax="none", alpha="none", preprocessing="false", defense="3.1f", other_constraints=[]):
+def CFG_improved(G, T, n_firefighters, F, relax="none", alpha=0.7, preprocessing="False", defense="3.1f", other_constraints=[]):
 
     assert 0 <= alpha <= 1, "alpha must be in [0,1]"
     assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
@@ -65,6 +66,7 @@ def CFG_improved(G, T, n_firefighters, F, relax="none", alpha="none", preprocess
     V = utils.get_V(G)
 
     m = gp.Model("CFG_with_options")
+    m.Params.OutputFlag = 0
 
     vtype_b = GRB.BINARY
     vtype_d = GRB.BINARY

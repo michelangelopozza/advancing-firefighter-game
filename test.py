@@ -4,6 +4,7 @@ from gurobipy import GRB
 import argparse
 import numpy as np
 import os
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 from src.graph_generation import getPoints, DelaunayGraph, GabrielGraph
@@ -115,7 +116,7 @@ def test_2():
 
     if os.path.exists(csv_path):
         os.remove(csv_path)
-    for idx, config in enumerate(config_test_2):
+    for config in tqdm(config_test_2):
         
         # Number of generated points on the graph
         n_points = config["n_points"]
@@ -150,15 +151,6 @@ def test_2():
                 F_G = utils.getF(G, n_fires)
                 F_D = utils.getF(D, n_fires)
 
-                if PLOTS:
-                    fig, ax = plt.subplots(figsize=(8,8))
-                    plot_graph(ax, G, points, "Gabriel Graph")
-                    plt.show()
-
-                    fig, ax = plt.subplots(figsize=(8,8))
-                    plot_graph(ax, D, points, "Delaunay Graph")
-                    plt.show()
-
                 V_G = list(G.nodes())
                 V_D = list(D.nodes())
 
@@ -167,15 +159,11 @@ def test_2():
                 m_D, b_D, d_D = CFG(D, T, n_firefighters, F_D)
 
                 T_opt_G = utils.get_T_opt(b_G, V_G, T)
-
-                #graph_animation(f"{PLOT_PATH}/Gabriel_IP1.gif", points, G, V_G, F_G, T_opt_G, b_G, d_G)
-
                 T_opt_D = utils.get_T_opt(b_D, V_D, T)
 
-                #graph_animation(f"{PLOT_PATH}/Delaunay_IP1.gif", points, D, V_D, F_D, T_opt_D, b_D, d_D)
 
-                info_G.append(utils.results_single_graph_vocabulary(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
-                info_D.append(utils.results_single_graph_vocabulary(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
+                info_G.append(utils.results_single_graph_vocabulary_other_tests(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
+                info_D.append(utils.results_single_graph_vocabulary_other_tests(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
 
         total_info_G = utils.compute_mean_graph_vocabulary(info_G, len(params_test_2)*len(SEEDS), "Gabriel")
         total_info_D = utils.compute_mean_graph_vocabulary(info_D, len(params_test_2)*len(SEEDS), "Delaunay")
@@ -193,14 +181,12 @@ def test_3():
 
     if os.path.exists(csv_path):
         os.remove(csv_path)
-    for idx, config in enumerate(config_test_3):
+    for config in tqdm(config_test_3):
         
         relaxation = config
 
         info_G = []
         info_D = []
-
-        print(relaxation)
 
         for params in params_test_3:
             n_points = params["n_points"]
@@ -237,13 +223,145 @@ def test_3():
                 T_opt_G = utils.get_T_opt(b_G, V_G, T)
                 T_opt_D = utils.get_T_opt(b_D, V_D, T)
 
-                info_G.append(utils.results_single_graph_vocabulary(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
-                info_D.append(utils.results_single_graph_vocabulary(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
+                info_G.append(utils.results_single_graph_vocabulary_other_tests(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
+                info_D.append(utils.results_single_graph_vocabulary_other_tests(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
 
         total_info_G = utils.compute_mean_graph_vocabulary(info_G, len(params_test_3)*len(SEEDS), "Gabriel")
         total_info_D = utils.compute_mean_graph_vocabulary(info_D, len(params_test_3)*len(SEEDS), "Delaunay")
 
         info = utils.test_3_information_vocabulary(relaxation, total_info_G, total_info_D)
+
+        utils.append_to_csv(info, f"{RESULTS_PATH}/{test_name}.csv")
+
+    utils.from_csv_to_pdf(f"{RESULTS_PATH}/{test_name}.csv", f"{RESULTS_PATH}/{test_name}.pdf")
+
+def test_4():
+    test_name = "test_4"
+
+    csv_path = f"{RESULTS_PATH}/{test_name}.csv"
+
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
+    for config in tqdm(config_test_4):
+        
+        relaxation = "defense"
+
+        preprocessing = config["preprocessing"]
+        alpha = config["alpha"]
+        defense = config["defense"]
+        other_constraints = config["other_constraints"]
+
+        info_G = []
+        info_D = []
+
+        for params in params_test_4:
+            n_points = params["n_points"]
+            n_fires = params["n_fires"]
+            n_firefighters = params['n_firefighters']
+
+            # Max T in the classical formulation corresponds to the number of points
+            T_max_all = utils.get_T_max(n_points, n_fires, n_firefighters)
+            
+            # using T_max_4
+            T_max = T_max_all[-1]
+
+
+            for i, seed in enumerate(SEEDS):
+                # generate n_points random points in the plane [0,10]^2 as described in the data generation part
+                points = getPoints(n_points, seed)
+
+                T = T_max 
+
+                # given the points generate its Gabriel and Delaunay Graph
+                G = GabrielGraph(points)
+                D = DelaunayGraph(points)
+
+                # get the F set
+                F_G = utils.getF(G, n_fires)
+                F_D = utils.getF(D, n_fires)
+
+                V_G = list(G.nodes())
+                V_D = list(D.nodes())
+
+                m_G, b_G, d_G = CFG_improved(G, T, n_firefighters, F_G, relaxation, alpha, preprocessing, defense, other_constraints)
+                m_D, b_D, d_D = CFG_improved(D, T, n_firefighters, F_D, relaxation, alpha, preprocessing, defense, other_constraints)
+
+                T_opt_G = utils.get_T_opt(b_G, V_G, T)
+                T_opt_D = utils.get_T_opt(b_D, V_D, T)
+
+                info_G.append(utils.results_single_graph_vocabulary_other_tests(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
+                info_D.append(utils.results_single_graph_vocabulary_other_tests(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
+
+        total_info_G = utils.compute_mean_graph_vocabulary(info_G, len(params_test_4)*len(SEEDS), "Gabriel")
+        total_info_D = utils.compute_mean_graph_vocabulary(info_D, len(params_test_4)*len(SEEDS), "Delaunay")
+
+        info = utils.test_4_information_vocabulary(preprocessing, defense, other_constraints, total_info_G, total_info_D)
+
+        utils.append_to_csv(info, f"{RESULTS_PATH}/{test_name}.csv")
+
+    utils.from_csv_to_pdf(f"{RESULTS_PATH}/{test_name}.csv", f"{RESULTS_PATH}/{test_name}.pdf")
+
+def test_5():
+    test_name = "test_5"
+
+    csv_path = f"{RESULTS_PATH}/{test_name}.csv"
+
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
+    for config in tqdm(config_test_4):
+        
+        relaxation = "defense"
+
+        preprocessing = config["preprocessing"]
+        alpha = config["alpha"]
+        defense = config["defense"]
+        other_constraints = config["other_constraints"]
+
+        info_G = []
+        info_D = []
+
+        for params in params_test_4:
+            n_points = params["n_points"]
+            n_fires = params["n_fires"]
+            n_firefighters = params['n_firefighters']
+
+            # Max T in the classical formulation corresponds to the number of points
+            T_max_all = utils.get_T_max(n_points, n_fires, n_firefighters)
+            
+            # using T_max_4
+            T_max = T_max_all[-1]
+
+
+            for i, seed in enumerate(SEEDS):
+                # generate n_points random points in the plane [0,10]^2 as described in the data generation part
+                points = getPoints(n_points, seed)
+
+                T = T_max 
+
+                # given the points generate its Gabriel and Delaunay Graph
+                G = GabrielGraph(points)
+                D = DelaunayGraph(points)
+
+                # get the F set
+                F_G = utils.getF(G, n_fires)
+                F_D = utils.getF(D, n_fires)
+
+                V_G = list(G.nodes())
+                V_D = list(D.nodes())
+
+                m_G, b_G, d_G = CFG_improved(G, T, n_firefighters, F_G, relaxation, alpha, preprocessing, defense, other_constraints)
+                m_D, b_D, d_D = CFG_improved(D, T, n_firefighters, F_D, relaxation, alpha, preprocessing, defense, other_constraints)
+
+                T_opt_G = utils.get_T_opt(b_G, V_G, T)
+                T_opt_D = utils.get_T_opt(b_D, V_D, T)
+
+                info_G.append(utils.results_single_graph_vocabulary_other_tests(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
+                info_D.append(utils.results_single_graph_vocabulary_other_tests(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
+
+        total_info_G = utils.compute_mean_graph_vocabulary(info_G, len(params_test_4)*len(SEEDS), "Gabriel")
+        total_info_D = utils.compute_mean_graph_vocabulary(info_D, len(params_test_4)*len(SEEDS), "Delaunay")
+
+        info = utils.test_4_information_vocabulary(preprocessing, defense, other_constraints, total_info_G, total_info_D)
 
         utils.append_to_csv(info, f"{RESULTS_PATH}/{test_name}.csv")
 
@@ -379,4 +497,6 @@ if __name__ == "__main__":
         test_2()
     elif test == "test_3":
         test_3()
+    elif test == "test_4":
+        test_4()
                 
