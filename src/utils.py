@@ -230,8 +230,7 @@ def results_single_graph_vocabulary(G, V, T, m, b, d, type_graph): # type_graph:
         f"{type_graph}_Burn": calculate_burned_nodes(b, V, T_opt)
     }
 
-def results_single_graph_vocabulary_other_tests(G, V, T, m, b, d, type_graph): # type_graph: Gabriel or Delaunay
-    T_opt=get_T_opt(b, V, T)
+def results_single_graph_vocabulary_other_tests(G, m, type_graph): # type_graph: Gabriel or Delaunay
     return {
         f"{type_graph}_Time": m.Runtime,
         f"{type_graph}_Gap": 100*m.MIPGAP,
@@ -280,7 +279,7 @@ def test_4_information_vocabulary(preproccesing, defense, other_constraints, inf
     general_info = {
         "Preprocessing": preproccesing,
         "Defense": defense,
-        "Other": str(*other_constraints)
+        "Other": ", ".join(other_constraints)
     }
 
     return general_info | info_G | info_D
@@ -336,10 +335,10 @@ def preprocessing_x(G, V, F, T, x):
     distances = dict(nx.multi_source_dijkstra_path_length(G, F))
     for i in V:
         for j in get_N(i, G):
-            for t in range(2, min(dist[i]+1, T+1)):
+            for t in range(2, min(distances[i]+1, T+1)):
                 x[i, j, t].lb = 0
                 x[i, j, t].ub = 0
-            for t in range(2, min(dist[i], T+1)):
+            for t in range(2, min(distances[i], T+1)):
                 x[j, i, t].lb = 0
                 x[j, i, t].ub = 0
     return x

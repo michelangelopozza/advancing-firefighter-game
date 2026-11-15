@@ -56,11 +56,11 @@ def CFG(G, T, n_firefighters, F):
 
     return m, b, d
 
-def CFG_improved(G, T, n_firefighters, F, relax="none", alpha=0.7, preprocessing="False", defense="3.1f", other_constraints=[]):
+def CFG_improved(G, T, n_firefighters, F, relax="none", alpha=0.7, preprocessing=False, defense="3.1f", other_constraints=[]):
 
     assert 0 <= alpha <= 1, "alpha must be in [0,1]"
     assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
-    assert preprocessing == "True" or preprocessing == "False", "preproccesing must me True or False"
+    assert isinstance(preprocessing, bool), "preprocessing must be True or False"
     assert defense == "3.1f" or defense == "3.2", "defense must include one of the following constraints: 3.1f or 3.2"
 
     V = utils.get_V(G)
@@ -247,14 +247,17 @@ def CF1(G, T, n_firefighters, F):
 
     return m, b_hat, d_hat
 
-def CF1_improved(G, T, n_firefighters, F, alpha=0.7, relax="none"):
+def CF1_improved(G, T, n_firefighters, F, relax="none", alpha=0.7, preprocessing=True, defense="3.5b", other_constraints=[]):
 
     assert 0 <= alpha <= 1, "alpha must be in [0,1]"
     assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
+    assert isinstance(preprocessing, bool), "preprocessing must be True or False"
+    assert defense == "3.5b" or defense == "3.6", "defense must include one of the following constraints: 3.5b or 3.6"
 
     V = utils.get_V(G)
 
     m = gp.Model("CF1_improved")
+    m.Params.OutputFlag = 0
 
     vtype_b_hat = GRB.BINARY
     vtype_d_hat = GRB.BINARY
@@ -268,6 +271,13 @@ def CF1_improved(G, T, n_firefighters, F, alpha=0.7, relax="none"):
     b_hat = m.addVars(V, range(T+1), vtype=vtype_b_hat, lb=0, ub=1, name="b_hat")
     d_hat = m.addVars(V, range(T+1), vtype=vtype_d_hat, lb=0, ub=1, name="d_hat")
 
+    if defense == "3.5b":
+        # max n_firefighters set each time step
+        m.addConstrs(
+            (gp.quicksum(d_hat[i, t] for i in V) <= n_firefighters for t in range(1, T+1)),
+            name="3.5b"
+        )
+    
     # vertex j adjacent to i burning at t-1 must be defended or burn at time t
     m.addConstrs(
         (gp.quicksum(b_hat[i, r] for r in range(0, t)) <= gp.quicksum(b_hat[j, r] 
@@ -276,29 +286,70 @@ def CF1_improved(G, T, n_firefighters, F, alpha=0.7, relax="none"):
         name="3.5c"
     )
 
-    # aggregate constraint for the maximum number of defenders per time step
-    m.addConstrs(
-        (gp.quicksum(gp.quicksum(d_hat[i, r] for r in range(1, t+1)) for i in V) <= t*n_firefighters for t in range(1, T+1)),
-        name="3.6"
-    )
+    if defense == "3.6":
+        # aggregate constraint for the maximum number of defenders per time step
+        m.addConstrs(
+            (gp.quicksum(gp.quicksum(d_hat[i, r] for r in range(1, t+1)) for i in V) <= t*n_firefighters for t in range(1, T+1)),
+            name="3.6"
+        )
 
-    # # a vertex can burn for the first time only at one t (alpha formulation to reduce the total number of inequalities)
-    # m.addConstrs(
-    #     (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) <= 1 for i in V for t in range(0, math.ceil(alpha*(T))+1)),
-    #     name="alpha3.7_1"
-    # )
+    if "3.7" in other_constraints:
+        # a vertex can burn for the first time only at one t
+        m.addConstrs(
+            (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) <= 1 for i in V for t in range(0, T+1)),
+            name="3.7_1"
+        )
+        
+        # a vertex can be defended for the first time only at one t
+        m.addConstrs(
+            (gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(1, T+1)),
+            name="3.7_2"
+        )
+
+    if "3.7_alpha" in other_constraints:
+        # a vertex can burn for the first time only at one t (alpha formulation to reduce the total number of inequalities)
+        m.addConstrs(
+            (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) <= 1 for i in V for t in range(0, math.ceil(alpha*(T))+1)),
+            name="alpha3.7_1"
+        )
+        
+        # a vertex can be defended for the first time only at one t (alpha formulation to reduce the total number of inequalities)
+        m.addConstrs(
+            (gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(1, math.ceil(alpha*(T))+1)),
+            name="alpha3.7_2"
+        )
+
+    if "3.8" in other_constraints:
+        # a vertex can be defended or burn, not both for each time t
+        m.addConstrs(
+            (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) + gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(0, T+1)),
+            name="3.8"
+        )
+
+    if "3.8_alpha" in other_constraints:
+        # a vertex can be defended or burn, not both for each time t (alpha formulation to reduce the total number of inequalities)
+        m.addConstrs(
+            (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) + gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(0, math.ceil(alpha*(T))+1)),
+            name="alpha3.8"
+        )
+
+    if "3.9" in other_constraints:
+        m.addConstrs(
+            (gp.quicksum(b_hat[i, t] for t in range(0, T+1)) <= 1 for i in V),
+            name="3.9_1"
+        )
     
-    # # a vertex can be defended for the first time only at one t (alpha formulation to reduce the total number of inequalities)
-    # m.addConstrs(
-    #     (gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(1, math.ceil(alpha*(T))+1)),
-    #     name="alpha3.7_2"
-    # )
+        m.addConstrs(
+            (gp.quicksum(d_hat[i, t] for t in range(1, T+1)) <= 1 for i in V),
+            name="3.9_2"
+        )
 
-    # a vertex can be defended or burn, not both for each time t (alpha formulation to reduce the total number of inequalities)
-    m.addConstrs(
-        (gp.quicksum(b_hat[i, r] for r in range(0, t+1)) + gp.quicksum(d_hat[i, r] for r in range(1, t+1)) <= 1 for i in V for t in range(0, math.ceil(alpha*(T))+1)),
-        name="alpha3.8"
-    )
+    if "3.10" in other_constraints:
+        m.addConstrs(
+            (gp.quicksum(b_hat[i, t] for t in range(0, T+1)) + gp.quicksum(d_hat[i, t] for t in range(1, T+1)) <= 1 for i in V),
+            name="3.10"
+        )
+
 
     # 3.5d -> set vertices in F to burn at t=0
     for i in F:
@@ -306,7 +357,8 @@ def CF1_improved(G, T, n_firefighters, F, alpha=0.7, relax="none"):
         b_hat[i, 0].ub = 1
     
     # preprocessing -> set b[i, t]=0 for t<dist(i,j) where j in F
-    b_hat = utils.preprocessing_b(G, V, F, T, b_hat)
+    if preprocessing:
+        b_hat = utils.preprocessing_b(G, V, F, T, b_hat)
 
     # 3.5a -> minimize the sum of vertices that starts burning at t for all t and for all i in V
     m.setObjective(gp.quicksum(gp.quicksum(b_hat[i, t] for t in range(0, T+1)) for i in V), GRB.MINIMIZE)
@@ -384,14 +436,18 @@ def CF2(G, T, n_firefighters, F):
 
     return m, x, d
 
-def CF2_improved(G, T, n_firefighters, F, alpha=0.7, beta=0.5):
+def CF2_improved(G, T, n_firefighters, F, relax="none", alpha=0.7, beta=0.5, preprocessing=True, defense="3.5b", other_constraints=[]):
 
     assert 0 <= alpha <= 1, "alpha must be in [0,1]"
     assert 0 <= beta <= 1, "beta must be in [0,1]"
+    assert relax == "defense" or relax == "fires" or relax == "none", "relax must be equal to defense, fires or none"
+    assert isinstance(preprocessing, bool), "preprocessing must be True or False"
+    assert defense == "3.1f" or defense == "3.2", "defense must include one of the following constraints: 3.1f or 3.2"
 
     V = utils.get_V(G)
 
     m = gp.Model("CF2_improved")
+    m.Params.OutputFlag = 0
 
     # x_ij^t is 1 if the fire spreads from vertex i to j at time t
     x = m.addVars(((i, j, t) for i in V for j in utils.get_N(i, G) for t in range(1, T+1)), 
@@ -403,11 +459,18 @@ def CF2_improved(G, T, n_firefighters, F, alpha=0.7, beta=0.5):
         name="3.1c"
     )
 
-    # substitute 3.1f
-    m.addConstrs(
-        (gp.quicksum(d[i, t] for i in V) <= n_firefighters*t for t in range(1, T+1)),
-        name="3.2"
-    )
+    if defense == "3.1f":
+        m.addConstrs(
+            (gp.quicksum(d[i, t] - d[i, t-1] for i in V) <= n_firefighters for t in range(1, T+1)),
+            name="3.1f"
+        )
+
+    if defense == "3.2":
+        # substitute 3.1f
+        m.addConstrs(
+            (gp.quicksum(d[i, t] for i in V) <= n_firefighters*t for t in range(1, T+1)),
+            name="3.2"
+        )
 
     # 3.1h
     for i in V:
@@ -431,9 +494,9 @@ def CF2_improved(G, T, n_firefighters, F, alpha=0.7, beta=0.5):
         (gp.quicksum(x[k, i, t-1] for k in set(utils.get_N(i, G)) - {j}) <= x[i, j, t] + d[j, t] + 
         gp.quicksum(gp.quicksum(x[k, j, r] for k in (set(utils.get_N(j, G))-set({i}))) 
         for r in range(max(1, t-2),t+1)) for i in (set(V)-set(F)) 
-        for j in utils.get_N(i, G) for t in range(2, T+1)),
+        for j in utils.get_N(i, G) if j not in F for t in range(2, T+1)),
         name="3.11c"
-    )
+    ) # Ho aggiunto j not in F!!!! Prepara spiegazione relativa all'infeasibility del problema
 
     # 3.11d -> no spontaneous ignition constraint
     for i in (set(V)-set(F)):
@@ -449,24 +512,31 @@ def CF2_improved(G, T, n_firefighters, F, alpha=0.7, beta=0.5):
     )
 
 
-    # add 3.12alpha
-    m.addConstrs(
-        (d[i, t] + gp.quicksum(gp.quicksum(x[k, i, r] for k in utils.get_N(i, G)) 
-        for r in range(1, t+1)) <= 1 for i in V for t in range(1, math.ceil(alpha*T)+1)),
-        name="3.12_alpha"
-    )
+    if "3.12_alpha" in other_constraints:
+        # add 3.12alpha
+        m.addConstrs(
+            (d[i, t] + gp.quicksum(gp.quicksum(x[k, i, r] for k in utils.get_N(i, G)) 
+            for r in range(1, t+1)) <= 1 for i in V for t in range(1, math.ceil(alpha*T)+1)),
+            name="3.12_alpha"
+        )
 
-    # add 3.14alpha
-    m.addConstrs(
-        (beta*d[i, t] + (1-beta)*d[j, t] + gp.quicksum(x[i, j, r] for r in range(1, t+1))
-        + gp.quicksum(x[j, i, r] for r in range(1, t+1)) <= 1 for (i,j) in G.edges() 
-        for t in range(1, math.ceil(alpha*T)+1)),
-        name="3.14_alpha"
-    )
+    if "3.13" in other_constraints:
+        m.addConstrs(
+            (d[i, T] + gp.quicksum(gp.quicksum(x[k, i, t] for k in utils.get_N(i, G)) 
+            for t in range(1, T+1)) <= 1 for i in V),
+            name="3.13"
+        )
 
-    # preprocessing
-    x = utils.preprocessing_x(G, V, F, T, x)
+    if "3.15" in other_constraints:
+        m.addConstrs(
+            (beta*d[i, T] + (1-beta)*d[j, T] + gp.quicksum(x[i, j, t] for t in range(1, T+1))
+            + gp.quicksum(x[j, i, t] for t in range(1, T+1)) <= 1 for (i,j) in G.edges()),
+            name="3.15"
+        )
 
+    if preprocessing:
+        # preprocessing
+        x = utils.preprocessing_x(G, V, F, T, x)
 
 
     # 3.11a -> minimize the number of vertices the fire spreads to

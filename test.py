@@ -33,7 +33,7 @@ from src.configurations import *
 """
 
 PLOTS = False
-SEED = 57
+SEED = 982
 SEEDS = [57, 982, 4, 322, 81]
 # Number of simulation per configuration
 N_SIM = 5
@@ -303,12 +303,13 @@ def test_4():
 
 def test_5():
     test_name = "test_5"
+    opt = optimization_problems["CF1_improved"]
 
     csv_path = f"{RESULTS_PATH}/{test_name}.csv"
 
     if os.path.exists(csv_path):
         os.remove(csv_path)
-    for config in tqdm(config_test_4):
+    for config in tqdm(config_test_5):
         
         relaxation = "defense"
 
@@ -320,7 +321,7 @@ def test_5():
         info_G = []
         info_D = []
 
-        for params in params_test_4:
+        for params in params_test_5:
             n_points = params["n_points"]
             n_fires = params["n_fires"]
             n_firefighters = params['n_firefighters']
@@ -349,17 +350,85 @@ def test_5():
                 V_G = list(G.nodes())
                 V_D = list(D.nodes())
 
-                m_G, b_G, d_G = CFG_improved(G, T, n_firefighters, F_G, relaxation, alpha, preprocessing, defense, other_constraints)
-                m_D, b_D, d_D = CFG_improved(D, T, n_firefighters, F_D, relaxation, alpha, preprocessing, defense, other_constraints)
+                m_G, b_hat_G, d_hat_G = opt(G, T, n_firefighters, F_G, relaxation, alpha, preprocessing, defense, other_constraints)
+                m_D, b_hat_D, d_hat_D = opt(D, T, n_firefighters, F_D, relaxation, alpha, preprocessing, defense, other_constraints)
 
-                T_opt_G = utils.get_T_opt(b_G, V_G, T)
-                T_opt_D = utils.get_T_opt(b_D, V_D, T)
+                T_opt_G = utils.get_T_opt_CF1(b_hat_G, V_G, T)
+                T_opt_D = utils.get_T_opt_CF1(b_hat_D, V_D, T)
 
-                info_G.append(utils.results_single_graph_vocabulary_other_tests(G, V_G, T, m_G, b_G, d_G, "Gabriel"))
-                info_D.append(utils.results_single_graph_vocabulary_other_tests(D, V_D, T, m_D, b_D, d_D, "Delaunay"))
+                info_G.append(utils.results_single_graph_vocabulary_other_tests(G, V_G, T, m_G, b_hat_G, d_hat_G, "Gabriel"))
+                info_D.append(utils.results_single_graph_vocabulary_other_tests(D, V_D, T, m_D, b_hat_D, d_hat_D, "Delaunay"))
 
-        total_info_G = utils.compute_mean_graph_vocabulary(info_G, len(params_test_4)*len(SEEDS), "Gabriel")
-        total_info_D = utils.compute_mean_graph_vocabulary(info_D, len(params_test_4)*len(SEEDS), "Delaunay")
+        total_info_G = utils.compute_mean_graph_vocabulary(info_G, len(params_test_5)*len(SEEDS), "Gabriel")
+        total_info_D = utils.compute_mean_graph_vocabulary(info_D, len(params_test_5)*len(SEEDS), "Delaunay")
+
+        info = utils.test_4_information_vocabulary(preprocessing, defense, other_constraints, total_info_G, total_info_D)
+
+        utils.append_to_csv(info, f"{RESULTS_PATH}/{test_name}.csv")
+
+    utils.from_csv_to_pdf(f"{RESULTS_PATH}/{test_name}.csv", f"{RESULTS_PATH}/{test_name}.pdf")
+
+def test_6():
+    test_name = "test_6"
+    opt = optimization_problems["CF2_improved"]
+
+    csv_path = f"{RESULTS_PATH}/{test_name}.csv"
+
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
+    for config in tqdm(config_test_6):
+        
+        relaxation = "defense"
+
+        preprocessing = config["preprocessing"]
+        alpha = config["alpha"]
+        defense = config["defense"]
+        other_constraints = config["other_constraints"]
+
+        info_G = []
+        info_D = []
+
+        for params in params_test_6:
+            n_points = params["n_points"]
+            n_fires = params["n_fires"]
+            n_firefighters = params['n_firefighters']
+
+            # Max T in the classical formulation corresponds to the number of points
+            T_max_all = utils.get_T_max(n_points, n_fires, n_firefighters)
+            
+            # using T_max_4
+            T_max = T_max_all[-1]
+
+
+            for i, seed in enumerate(SEEDS):
+                # generate n_points random points in the plane [0,10]^2 as described in the data generation part
+                points = getPoints(n_points, seed)
+
+                T = T_max 
+
+                # given the points generate its Gabriel and Delaunay Graph
+                G = GabrielGraph(points)
+                D = DelaunayGraph(points)
+
+                # get the F set
+                F_G = utils.getF(G, n_fires)
+                F_D = utils.getF(D, n_fires)
+
+                V_G = list(G.nodes())
+                V_D = list(D.nodes())
+
+                m_G, x_G, d_G = opt(G, T, n_firefighters, F_G, relax=relaxation, alpha=alpha, preprocessing=preprocessing, defense=defense, other_constraints=other_constraints)
+                m_D, x_D, d_D = opt(D, T, n_firefighters, F_D, relax=relaxation, alpha=alpha, preprocessing=preprocessing, defense=defense, other_constraints=other_constraints)
+
+                T_opt_G = utils.get_T_opt_CF2(x_G)
+                T_opt_D = utils.get_T_opt_CF2(x_D)
+
+                # should be modified
+                info_G.append(utils.results_single_graph_vocabulary_other_tests(G, m_G, "Gabriel"))
+                info_D.append(utils.results_single_graph_vocabulary_other_tests(D, m_D, "Delaunay"))
+
+        total_info_G = utils.compute_mean_graph_vocabulary(info_G, len(params_test_6)*len(SEEDS), "Gabriel")
+        total_info_D = utils.compute_mean_graph_vocabulary(info_D, len(params_test_6)*len(SEEDS), "Delaunay")
 
         info = utils.test_4_information_vocabulary(preprocessing, defense, other_constraints, total_info_G, total_info_D)
 
@@ -499,4 +568,8 @@ if __name__ == "__main__":
         test_3()
     elif test == "test_4":
         test_4()
+    elif test == "test_5":
+        test_5()
+    elif test == "test_6":
+        test_6()
                 
